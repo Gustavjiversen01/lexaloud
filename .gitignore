@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+
+# Virtual environments (including the spike0 venv)
+.venv*/
+venv/
+env/
+
+# Editable install artifact
+src/readaloud.egg-info/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Model artifacts are cached under ~/.cache/readaloud/ by design — not in the repo
+# This entry is just defensive in case someone runs cwd-relative caching.
+models/
+*.onnx
+*.bin
+
+# spike outputs that should not be committed
+spikes/spike0_results.json
+tmp/
+
+# External tool metadata
+.codex
+.aider*
+.cursor/
+.idea/
+.vscode/
+
+# Spike 1 raw captures (interactive output)
+docs/capture-matrix.raw*.md

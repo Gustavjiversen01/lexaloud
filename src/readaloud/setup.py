@@ -1,0 +1,200 @@
+"""Phase B setup command: post-install configuration.
+
+Runs AFTER scripts/install.sh has created the venv and installed the package.
+Responsibilities:
+
+1. Resolve the absolute path to the `readaloud` binary via `shutil.which`
+   (falling back to `sys.executable`'s directory). Print it prominently —
+   it's what the user pastes into GNOME Custom Shortcuts and into the
+   systemd unit.
+2. Run `readaloud download-models` (idempotent).
+3. Detect session type and print the hotkey-binding walkthrough.
+4. Render a systemd `--user` unit file to
+   `~/.config/systemd/user/readaloud.service`. Does NOT overwrite existing
+   unless `--force` is set, but if the on-disk content differs from what
+   we'd render, print a clear message telling the user to pass --force.
+5. Print the exact activate commands including `daemon-reload` BEFORE
+   `enable --now`.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+from pathlib import Path
+
+from .cli import EXIT_GENERIC_ERROR, EXIT_OK
+from .models import default_cache_dir, ensure_artifacts
+from .session import detect_session
+
+
+# systemd unit template.
+#
+# Notes on the choices:
+# - `UnsetEnvironment=PYTHONPATH` cleanly removes any inherited PYTHONPATH
+#   (ROS, ComfyUI, etc.) so the daemon's venv sees only its own site-packages.
+# - `TimeoutStopSec=10` ensures SIGTERM is followed by SIGKILL within 10s
+#   rather than the default 90s, so a stuck worker thread in the dedicated
+#   executor doesn't block user logout.
+# - `After=default.target` only — `sound.target` is a system-level target
+#   and is not present in the per-user manager. The daemon lazily opens the
+#   audio device on first playback, so no audio ordering is needed.
+# - ExecStart uses systemd's C-style double-quote escaping so paths with
+#   spaces work correctly.
+SYSTEMD_UNIT_TEMPLATE = """\
+[Unit]
+Description=ReadAloud TTS daemon
+After=default.target
+
+[Service]
+Type=simple
+ExecStart={binary_quoted} daemon
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=10
+# Scrub PYTHONPATH to avoid leaking ROS/Jazzy or other user-provided
+# PYTHONPATH contents into the daemon's Python environment.
+UnsetEnvironment=PYTHONPATH
+# Run from the user's home so relative paths resolve sensibly.
+WorkingDirectory=%h
+
+[Install]
+WantedBy=default.target
+"""
+
+
+def _systemd_quote(s: str) -> str:
+    """Quote a path for a systemd ExecStart line.
+
+    systemd accepts C-style escape sequences inside double quotes for the
+    ExecStart= value. This matters when the binary path contains spaces.
+    """
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _resolve_binary() -> Path:
+    which = shutil.which("readaloud")
+    if which:
+        return Path(which).resolve()
+    # Fallback: assume we're running inside the target venv.
+    exe_dir = Path(sys.executable).resolve().parent
+    candidate = exe_dir / "readaloud"
+    if candidate.exists():
+        return candidate
+    raise RuntimeError(
+        "Could not resolve the `readaloud` binary. Is the package installed? "
+        "Run scripts/install.sh first."
+    )
+
+
+def _systemd_user_dir() -> Path:
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    root = Path(xdg) if xdg else Path.home() / ".config"
+    d = root / "systemd" / "user"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _render_unit(binary: Path) -> str:
+    return SYSTEMD_UNIT_TEMPLATE.format(binary_quoted=_systemd_quote(str(binary)))
+
+
+def _hotkey_walkthrough(binary: Path) -> str:
+    info = detect_session()
+    desktop = info.desktop
+    is_wayland = info.is_wayland
+
+    lines: list[str] = []
+    lines.append("")
+    lines.append("===== Hotkey binding walkthrough =====")
+    lines.append("")
+    lines.append(f"Desktop: {desktop}")
+    lines.append(f"Session: {info.session_type}")
+    lines.append("")
+    if "GNOME" in desktop.upper():
+        lines.append("GNOME Custom Shortcut:")
+        lines.append("  1. Open Settings -> Keyboard -> View and Customize Shortcuts")
+        lines.append("     -> Custom Shortcuts -> + (Add shortcut)")
+        lines.append("  2. Name:    ReadAloud: speak selection")
+        lines.append(f"     Command: {binary} speak-selection")
+        lines.append("     Shortcut: press Super+R (or any binding you prefer)")
+        lines.append("  3. Add a second shortcut for speak-clipboard if you want")
+        lines.append("     a Ctrl+C-then-hotkey workflow (recommended on GNOME Wayland,")
+        lines.append("     where the primary selection may be empty for some apps).")
+        if is_wayland:
+            lines.append("")
+            lines.append("  Note: GNOME Wayland does not always expose the PRIMARY selection")
+            lines.append("  via wl-paste --primary. If `speak-selection` comes up empty for")
+            lines.append("  apps like VS Code or Obsidian, bind `speak-clipboard` instead")
+            lines.append("  and use Ctrl+C before the hotkey.")
+    elif "KDE" in desktop.upper() or "PLASMA" in desktop.upper():
+        lines.append("KDE Plasma Custom Shortcut:")
+        lines.append("  1. Open System Settings -> Shortcuts -> Custom Shortcuts")
+        lines.append("  2. Edit -> New -> Global Shortcut -> Command/URL")
+        lines.append(f"     Command: {binary} speak-selection")
+    else:
+        lines.append(f"For {desktop}: bind `{binary} speak-selection` to your preferred")
+        lines.append("global shortcut. See your window manager's documentation.")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def run_setup(force: bool = False) -> int:
+    try:
+        binary = _resolve_binary()
+    except RuntimeError as e:
+        print(f"readaloud setup failed: {e}", file=sys.stderr)
+        return EXIT_GENERIC_ERROR
+
+    print(f"readaloud binary: {binary}")
+
+    # Warn about PYTHONPATH pollution (e.g. ROS sourcing at login).
+    if os.environ.get("PYTHONPATH"):
+        print(
+            "\nNote: your shell has PYTHONPATH set:\n"
+            f"  PYTHONPATH={os.environ['PYTHONPATH']}\n"
+            "The systemd unit we render will scrub this at daemon startup "
+            "so it won't leak into the Python environment.",
+        )
+
+    print(f"\nModel cache: {default_cache_dir()}")
+    try:
+        ensure_artifacts(download_if_missing=True)
+        print("  models present and verified.")
+    except Exception as e:  # noqa: BLE001
+        print(f"  model download/verify failed: {e}", file=sys.stderr)
+        return EXIT_GENERIC_ERROR
+
+    unit_dir = _systemd_user_dir()
+    unit_path = unit_dir / "readaloud.service"
+    new_content = _render_unit(binary)
+
+    if unit_path.exists():
+        existing = unit_path.read_text()
+        if existing == new_content:
+            print(f"\nsystemd unit at {unit_path} already up to date.")
+        elif force:
+            unit_path.write_text(new_content)
+            print(f"\nOverwrote systemd unit: {unit_path}")
+        else:
+            print(
+                f"\nsystemd unit at {unit_path} differs from the rendered template "
+                "(the binary path or other fields may have changed).\n"
+                "Pass --force to overwrite."
+            )
+    else:
+        unit_path.write_text(new_content)
+        print(f"\nWrote systemd unit: {unit_path}")
+
+    print(_hotkey_walkthrough(binary))
+
+    print("Activate the daemon:")
+    print("  systemctl --user daemon-reload")
+    print("  systemctl --user enable --now readaloud.service")
+    print("")
+    print("Then verify with:")
+    print("  systemctl --user status readaloud.service")
+    print(f"  {binary} status")
+
+    return EXIT_OK
