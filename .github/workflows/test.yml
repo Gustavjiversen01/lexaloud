@@ -1,0 +1,60 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libportaudio2 \
+            python3-gi \
+            gir1.2-gtk-3.0 \
+            gir1.2-ayatanaappindicator3-0.1 \
+            wl-clipboard \
+            xclip \
+            libnotify-bin
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[test]
+
+      - name: Run pytest
+        # Deselect:
+        # - test_real_environment_is_gpu_only: asserts onnxruntime-gpu is
+        #   installed; CI has CPU-only onnxruntime via the dev extras.
+        # - tests/test_real_kokoro_smoke.py: opt-in, requires real model
+        #   files and real sounddevice stack.
+        run: |
+          python -m pytest tests/ \
+            --deselect tests/test_models_verify.py::test_real_environment_is_gpu_only \
+            --ignore=tests/test_real_kokoro_smoke.py \
+            -q

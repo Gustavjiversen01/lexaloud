@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "Europe/Copenhagen"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 5
+    # Ignore onnxruntime-gpu major bumps — Spike 0 pinned 1.24.4 specifically
+    # because earlier versions had the silent-CPU-fallback bug on the target
+    # machine. Major bumps must be manually vetted.
+    ignore:
+      - dependency-name: "onnxruntime-gpu"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"

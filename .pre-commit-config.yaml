@@ -1,0 +1,39 @@
+# Pre-commit hooks.
+#
+# To activate for your local working tree:
+#     pre-commit install
+#
+# The hooks run on `git commit`. To run them manually:
+#     pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'  # trailing whitespace can be significant in markdown (line breaks)
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.0
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: ["--fix"]
+
+  # Local hook: reject anything that mentions the maintainer's home path.
+  # Prevents accidental leaks of /home/gji/... into the public tree.
+  - repo: local
+    hooks:
+      - id: no-home-gji
+        name: no /home/gji paths
+        entry: sh -c 'if grep -rE "^[^#]*/home/gji/" --include="*.py" --include="*.sh" --include="*.md" --include="*.toml" --include="*.yml" --include="*.yaml" src/ tests/ scripts/ docs/ spikes/ .github/ pyproject.toml README.md 2>/dev/null; then echo "hook found /home/gji path references"; exit 1; fi'
+        language: system
+        pass_filenames: false
