@@ -46,6 +46,14 @@ from .providers.kokoro import KokoroProvider
 log = logging.getLogger(__name__)
 
 
+# Hard cap on the length of a single sentence after preprocessing. Dense
+# academic prose can legitimately hit 500-1500 characters; 4096 is a
+# generous ceiling that still rules out pathological input (e.g., an
+# uninterrupted 200 KB paragraph with no sentence boundaries, which
+# would either OOM the GPU or silently produce garbage audio).
+MAX_SENTENCE_CHARS = 4096
+
+
 # ---------- request/response models ----------
 
 
@@ -181,11 +189,28 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
 
     @app.post("/speak", response_model=StateResponse)
     async def speak(req: SpeakRequest) -> StateResponse:
+        if "\x00" in req.text:
+            raise HTTPException(
+                status_code=400, detail="text contains null bytes"
+            )
         if len(req.text.encode("utf-8")) > max_bytes:
             raise HTTPException(status_code=413, detail="text exceeds capture.max_bytes")
         sentences = preprocess(req.text, comps.preproc_config)
         if not sentences:
             raise HTTPException(status_code=400, detail="no synthesizable sentences")
+        too_long = [
+            (i, len(s)) for i, s in enumerate(sentences) if len(s) > MAX_SENTENCE_CHARS
+        ]
+        if too_long:
+            idx, length = too_long[0]
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"sentence {idx} exceeds MAX_SENTENCE_CHARS "
+                    f"({length} > {MAX_SENTENCE_CHARS}); preprocessing failed "
+                    f"to segment this input"
+                ),
+            )
         await comps.player.speak(sentences, mode=req.mode)
         return StateResponse(**asdict(comps.player.state))
 

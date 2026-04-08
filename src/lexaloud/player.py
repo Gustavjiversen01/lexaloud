@@ -47,6 +47,7 @@ Lifecycle:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from collections import deque
 from contextlib import suppress
@@ -57,6 +58,17 @@ import numpy as np
 
 from .audio import AudioSink
 from .providers.base import AudioChunk, SpeechProvider
+
+
+def _sentence_token(sentence: str) -> str:
+    """Return a privacy-safe identifier for a sentence: sha1[:8] + length.
+
+    Used in log messages so the daemon's journal never contains readable
+    user selection text. Duplicated from providers.kokoro to avoid a
+    circular import.
+    """
+    digest = hashlib.sha1(sentence.encode("utf-8")).hexdigest()[:8]
+    return f"{digest} ({len(sentence)}ch)"
 
 log = logging.getLogger(__name__)
 
@@ -221,10 +233,10 @@ class Player:
                     # Synthesis failed but the job wasn't cancelled —
                     # continue trying subsequent sentences. If they all
                     # fail, the end-of-job path will set last_error.
-                    log.warning(
-                        "job=%d: synthesize returned None for sentence: %.60r",
+                    log.debug(
+                        "job=%d: synthesize returned None for sentence %s",
                         job_id,
-                        sentence,
+                        _sentence_token(sentence),
                     )
                     continue
                 if not self._is_current_job(job_id):

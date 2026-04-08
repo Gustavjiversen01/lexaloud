@@ -17,7 +17,12 @@ log = logging.getLogger(__name__)
 
 def config_path() -> Path:
     base = os.environ.get("XDG_CONFIG_HOME")
-    root = Path(base) if base else Path.home() / ".config"
+    # Resolve so that a malicious XDG_CONFIG_HOME like '../../etc' can't
+    # walk the resulting path outside a canonical location. We only
+    # resolve the base, not the full path — the caller is free to append
+    # whatever lexaloud/config.toml suffix they want; we just want the
+    # base to be a real absolute path.
+    root = Path(base).resolve() if base else Path.home() / ".config"
     return root / "lexaloud" / "config.toml"
 
 

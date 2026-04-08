@@ -255,3 +255,38 @@ async def test_toggle_pauses_then_resumes(tmp_path: Path):
         # Drain to idle.
         state = await _wait_for_idle(client, timeout_s=3.0)
         assert state.get("state") == "idle"
+
+
+async def test_speak_rejects_null_bytes(tmp_path: Path):
+    """POST /speak with a null byte in text must return 400."""
+    comps = _make_components(tmp_path)
+    app = create_app(comps)
+    async with _client_for(app) as client:
+        r = await client.post("/speak", json={"text": "hello\x00world"})
+        assert r.status_code == 400
+        assert "null" in r.json()["detail"].lower()
+
+
+async def test_speak_rejects_oversized_sentence(tmp_path: Path):
+    """POST /speak with a post-preprocess sentence > MAX_SENTENCE_CHARS → 400."""
+    from lexaloud.daemon import MAX_SENTENCE_CHARS
+
+    comps = _make_components(tmp_path)
+    app = create_app(comps)
+    # A long run-on without any sentence terminators that pysbd would split
+    # on. Use 5000 `a` chars — well above MAX_SENTENCE_CHARS=4096.
+    huge = "a" * (MAX_SENTENCE_CHARS + 500)
+    async with _client_for(app) as client:
+        r = await client.post("/speak", json={"text": huge})
+        assert r.status_code == 400
+        assert "MAX_SENTENCE_CHARS" in r.json()["detail"] or "exceeds" in r.json()["detail"]
+
+
+async def test_speak_ordinary_text_not_flagged_by_sentence_cap(tmp_path: Path):
+    """A normal multi-sentence paragraph must still pass the sentence cap."""
+    comps = _make_components(tmp_path)
+    app = create_app(comps)
+    text = "First sentence. " + "Second sentence. " * 5 + "Third sentence."
+    async with _client_for(app) as client:
+        r = await client.post("/speak", json={"text": text})
+        assert r.status_code == 200
