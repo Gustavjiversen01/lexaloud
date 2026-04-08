@@ -1,0 +1,22 @@
+# Normalize line endings. Without this, Windows contributors without
+# autocrlf configured can corrupt shell script shebangs on checkout.
+* text=auto eol=lf
+
+# Explicit LF for shell scripts (must stay LF for shebangs to work)
+*.sh text eol=lf
+*.py text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+
+# Model weights and binary artifacts — never text-convert
+*.onnx binary
+*.bin binary
+*.gif binary
+*.png binary
+*.jpg binary
+*.wav binary

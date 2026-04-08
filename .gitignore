@@ -15,10 +15,20 @@ env/
 # Editable install artifact
 src/lexaloud.egg-info/
 
-# pytest
+# pytest / coverage
 .pytest_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
+
+# lint caches
+.mypy_cache/
+.ruff_cache/
+
+# OS metadata
+.DS_Store
+Thumbs.db
 
 # Model artifacts are cached under ~/.cache/lexaloud/ by design — not in the repo
 # This entry is just defensive in case someone runs cwd-relative caching.
@@ -36,6 +46,9 @@ tmp/
 .cursor/
 .idea/
 .vscode/
+
+# Overnight-agent handoff (ephemeral; not committed)
+morning-checklist.md
 
 # Spike 1 raw captures (interactive output)
 docs/capture-matrix.raw*.md
