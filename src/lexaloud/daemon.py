@@ -35,6 +35,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from . import __version__
 from .audio import AudioSink, SoundDeviceSink
 from .config import Config, load_config, runtime_dir, socket_path
 from .models import assert_onnxruntime_environment, ensure_artifacts
@@ -153,7 +154,7 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
             await comps.player.shutdown()
             exec_pool.shutdown(wait=False, cancel_futures=True)
 
-    app = FastAPI(title="Lexaloud", version="0.0.1", lifespan=lifespan)
+    app = FastAPI(title="Lexaloud", version=__version__, lifespan=lifespan)
     app.state.components = comps
 
     max_bytes = comps.cfg.capture.max_bytes
