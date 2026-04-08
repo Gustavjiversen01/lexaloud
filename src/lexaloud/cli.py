@@ -206,44 +206,60 @@ def _do_capture_and_speak(capture_fn, source_label: str, args) -> int:
 
 
 def cmd_speak_selection(args) -> int:
+    """Capture the PRIMARY selection and POST it to the daemon's /speak endpoint.
+
+    Returns EXIT_EMPTY_SELECTION (2) if the primary selection is empty,
+    EXIT_TOOL_MISSING_OR_TIMEOUT (5) if wl-paste/xclip is missing or hung.
+    """
     return _do_capture_and_speak(read_primary, "primary", args)
 
 
 def cmd_speak_clipboard(args) -> int:
+    """Capture the CLIPBOARD (after Ctrl+C) and POST it to /speak.
+
+    Use this when PRIMARY is empty (common on GNOME Wayland Electron apps).
+    """
     return _do_capture_and_speak(read_clipboard, "clipboard", args)
 
 
 def cmd_pause(args) -> int:
+    """Pause the current playback at the next sub-chunk boundary (~100 ms)."""
     _post_to_daemon("/pause")
     return EXIT_OK
 
 
 def cmd_resume(args) -> int:
+    """Resume paused playback."""
     _post_to_daemon("/resume")
     return EXIT_OK
 
 
 def cmd_toggle(args) -> int:
+    """Flip between speaking and paused. No-op when idle or warming."""
     _post_to_daemon("/toggle")
     return EXIT_OK
 
 
 def cmd_stop(args) -> int:
+    """Stop the current job, flush the audio sink, drop all pending sentences."""
     _post_to_daemon("/stop")
     return EXIT_OK
 
 
 def cmd_skip(args) -> int:
+    """Skip the currently-playing sentence. Pre-fetched ready chunks are preserved."""
     _post_to_daemon("/skip")
     return EXIT_OK
 
 
 def cmd_back(args) -> int:
+    """Rewind to the previously-finished sentence (or restart current if none)."""
     _post_to_daemon("/back")
     return EXIT_OK
 
 
 def cmd_status(args) -> int:
+    """Print the daemon's /state response as indented JSON."""
     state = _get_from_daemon("/state")
     import json
 
@@ -252,6 +268,10 @@ def cmd_status(args) -> int:
 
 
 def cmd_download_models(args) -> int:
+    """Fetch the Kokoro model artifacts into ~/.cache/lexaloud/models/.
+
+    Idempotent — skips files that already pass the SHA256 check.
+    """
     from .models import ensure_artifacts
 
     try:
@@ -265,16 +285,31 @@ def cmd_download_models(args) -> int:
 
 
 def cmd_setup(args) -> int:
+    """Run post-install setup: download models, render systemd unit, print hotkey walkthrough."""
     from .setup import run_setup
 
     return run_setup(force=args.force)
 
 
 def cmd_daemon(args) -> int:
+    """Run the FastAPI daemon in the foreground. Normally invoked via systemd --user."""
     from .daemon import run
 
     run()
     return EXIT_OK
+
+
+def cmd_bug_report(args) -> int:
+    """Print a markdown-formatted bug report to stdout for pasting into an issue.
+
+    Collects distro/kernel/desktop/GPU/Python/Lexaloud versions, daemon
+    state, last_error, model cache state, sanitized config.toml, systemd
+    unit status, and the last 200 journalctl lines. Redaction is on by
+    default; pass `--full` to disable it.
+    """
+    from .bug_report import cmd_bug_report as _impl
+
+    return _impl(args)
 
 
 # ---------- argument parser ----------
@@ -313,6 +348,17 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("setup", help="run first-time setup (post-install)")
     sp.add_argument("--force", action="store_true", help="overwrite existing systemd unit")
     sp.set_defaults(func=cmd_setup)
+
+    sp = sub.add_parser(
+        "bug-report",
+        help="print a markdown-formatted bug report for pasting into a GitHub issue",
+    )
+    sp.add_argument(
+        "--full",
+        action="store_true",
+        help="disable redaction (show $HOME paths and secret-looking config keys verbatim)",
+    )
+    sp.set_defaults(func=cmd_bug_report)
 
     return p
 

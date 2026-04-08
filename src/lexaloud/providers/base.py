@@ -11,7 +11,7 @@ See `docs/design-rationale.md` for the provider interface design.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -48,7 +48,12 @@ class SpeechProvider(Protocol):
 
     name: str
 
-    async def synthesize(self, sentence: str, job_id: int, is_current_job) -> AudioChunk | None:
+    async def synthesize(
+        self,
+        sentence: str,
+        job_id: int,
+        is_current_job: Callable[[int], bool],
+    ) -> AudioChunk | None:
         ...
 
     async def warmup(self) -> None:
