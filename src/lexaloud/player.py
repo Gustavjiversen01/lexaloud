@@ -49,6 +49,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Literal
 
@@ -204,10 +205,8 @@ class Player:
                     # On cancel, return the in-flight sentence to pending
                     # so recovery can process it.
                     self._pending.appendleft(sentence)
-                    try:
+                    with suppress(ValueError):
                         self._in_flight.remove(sentence)
-                    except ValueError:
-                        pass
                     raise
                 if chunk is None:
                     # Either the job was superseded (cancellation) or the
@@ -215,10 +214,8 @@ class Player:
                     # job is still current, the None was a synthesis
                     # failure, not a cancellation — count it so we can
                     # surface the systemic error at end-of-job.
-                    try:
+                    with suppress(ValueError):
                         self._in_flight.remove(sentence)
-                    except ValueError:
-                        pass
                     if not self._is_current_job(job_id):
                         return
                     # Synthesis failed but the job wasn't cancelled —
@@ -231,10 +228,8 @@ class Player:
                     )
                     continue
                 if not self._is_current_job(job_id):
-                    try:
+                    with suppress(ValueError):
                         self._in_flight.remove(sentence)
-                    except ValueError:
-                        pass
                     return
                 successes += 1
                 # Attach the source sentence as metadata so the consumer
@@ -245,10 +240,8 @@ class Player:
                 except asyncio.CancelledError:
                     # Cancelled while waiting to put; return sentence to pending.
                     self._pending.appendleft(sentence)
-                    try:
+                    with suppress(ValueError):
                         self._in_flight.remove(sentence)
-                    except ValueError:
-                        pass
                     raise
         except asyncio.CancelledError:
             raise
@@ -362,11 +355,9 @@ class Player:
                 self._last_finished_sentence = self._current_sentence
                 # The sentence just finished playing — remove it from the
                 # in-flight deque (it will be the oldest entry).
-                try:
-                    if self._current_sentence is not None:
+                if self._current_sentence is not None:
+                    with suppress(ValueError):
                         self._in_flight.remove(self._current_sentence)
-                except ValueError:
-                    pass
         except asyncio.CancelledError:
             raise
         except Exception as e:  # noqa: BLE001
@@ -591,10 +582,8 @@ class Player:
             # Drop the currently-playing sentence from in-flight; return
             # everything else to pending so we don't lose pre-fetched work.
             if current is not None:
-                try:
+                with suppress(ValueError):
                     self._in_flight.remove(current)
-                except ValueError:
-                    pass
             self._recover_in_flight_to_pending()
             self._current_sentence = None
             self._pause.set()
