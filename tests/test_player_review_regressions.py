@@ -235,11 +235,22 @@ async def test_set_warming_does_not_clobber_speaking():
 
 
 @pytest.mark.asyncio
-async def test_pause_works_from_warming_state():
+async def test_pause_is_noop_during_warming():
+    """Pause must NOT transition warming -> paused. Previously it did, and
+    resume() would then flip to "speaking" with no running producer,
+    leaving the player in a zombie state where /state reports "speaking"
+    forever with no audio. The fix is to restrict pause to the
+    "speaking" state only (see player.pause()).
+    """
     provider = FakeProvider()
     sink = NullSink()
     player = Player(provider, sink, ready_queue_depth=2)
 
     player.set_warming(True)
+    assert player.state.state == "warming"
     await player.pause()
-    assert player.state.state == "paused"
+    # Pause was ignored; we're still warming, not paused.
+    assert player.state.state == "warming"
+    # Resume is also a no-op from warming; state stays warming.
+    await player.resume()
+    assert player.state.state == "warming"

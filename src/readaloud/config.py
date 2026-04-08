@@ -6,10 +6,13 @@ are ignored so forward-compatible config additions don't crash old daemons.
 
 from __future__ import annotations
 
+import logging
 import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 def config_path() -> Path:
@@ -89,8 +92,23 @@ def load_config(path: Path | None = None) -> Config:
     p = path or config_path()
     if not p.exists():
         return cfg
-    with p.open("rb") as f:
-        data = tomllib.load(f)
+    try:
+        with p.open("rb") as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        # A malformed config.toml MUST NOT crash the daemon in a systemd
+        # restart loop. Log the error loudly so `journalctl --user -u
+        # readaloud` makes the cause obvious, and fall back to defaults.
+        log.error(
+            "Failed to parse %s: %s. Using default configuration; edit the "
+            "file to fix the syntax.",
+            p,
+            e,
+        )
+        return cfg
+    except OSError as e:
+        log.error("Could not read %s: %s. Using default configuration.", p, e)
+        return cfg
     if isinstance(data.get("capture"), dict):
         _merge(cfg.capture, data["capture"])
     if isinstance(data.get("daemon"), dict):

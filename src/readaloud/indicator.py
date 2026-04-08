@@ -12,20 +12,44 @@ daemon, CLI, and tests are unaffected.
 
 from __future__ import annotations
 
+import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
 
+log = logging.getLogger(__name__)
+
 # --- make the system-level gi module importable from inside the venv ------
 
-try:  # pragma: no cover
+try:
     import gi  # type: ignore
-except ImportError:  # pragma: no cover
+except ImportError:
     sys.path.append("/usr/lib/python3/dist-packages")
-    import gi  # type: ignore
+    try:
+        import gi  # type: ignore
+    except ImportError as e:
+        print(
+            "ReadAloud indicator: cannot import the 'gi' Python bindings. "
+            "Install them with `sudo apt install python3-gi "
+            "gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1` and ensure "
+            "the 'ubuntu-appindicators' GNOME extension is enabled.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from e
 
-gi.require_version("Gtk", "3.0")
-gi.require_version("AyatanaAppIndicator3", "0.1")
+try:
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("AyatanaAppIndicator3", "0.1")
+except ValueError as e:
+    print(
+        f"ReadAloud indicator: missing GIR typelib: {e}. "
+        "Install with `sudo apt install gir1.2-gtk-3.0 "
+        "gir1.2-ayatanaappindicator3-0.1`.",
+        file=sys.stderr,
+    )
+    raise SystemExit(2) from e
+
 from gi.repository import GLib, Gtk  # type: ignore  # noqa: E402
 from gi.repository import AyatanaAppIndicator3 as AppIndicator3  # type: ignore  # noqa: E402
 
@@ -35,17 +59,63 @@ VENV_BIN = Path(sys.executable).parent
 READALOUD_BIN = str(VENV_BIN / "readaloud")
 SERVICE = "readaloud.service"
 
-ICON_RUNNING = "audio-headphones"
-ICON_STOPPED = "audio-headphones-symbolic"
+# Both icons are symbolic so they tint consistently with the GNOME panel
+# theme instead of the tray flipping between colored and monochrome on
+# state change.
+ICON_RUNNING = "audio-headphones-symbolic"
+ICON_WARMING = "audio-headphones-symbolic"
+ICON_STOPPED = "audio-volume-muted-symbolic"
+
+
+def _notify(summary: str, body: str = "") -> None:
+    """Fire a best-effort notify-send; never raises."""
+    try:
+        args = ["notify-send", "--app-name", "ReadAloud", "--expire-time", "4000", "--", summary]
+        if body:
+            args.append(body)
+        subprocess.Popen(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:  # noqa: BLE001
+        log.debug("notify-send failed: %s", e)
 
 
 def _systemctl(action: str) -> int:
-    return subprocess.run(
-        ["systemctl", "--user", action, SERVICE],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=10,
-    ).returncode
+    """Run `systemctl --user <action> readaloud.service` with full error
+    handling. Returns the subprocess returncode, or -1 if the call
+    couldn't be executed at all. Notifies on failure.
+    """
+    try:
+        r = subprocess.run(
+            ["systemctl", "--user", action, SERVICE],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        log.error("systemctl %s %s timed out", action, SERVICE)
+        _notify(
+            f"ReadAloud: systemctl {action} timed out",
+            "systemd --user may be unresponsive. Check `systemctl --user status`.",
+        )
+        return -1
+    except (OSError, subprocess.SubprocessError) as e:
+        log.error("systemctl %s %s failed to execute: %s", action, SERVICE, e)
+        _notify(
+            "ReadAloud: cannot invoke systemctl",
+            f"Is systemctl on PATH? {e}",
+        )
+        return -1
+    if r.returncode != 0:
+        stderr = (r.stderr or b"").decode("utf-8", errors="replace").strip()
+        log.error("systemctl %s exited %d: %s", action, r.returncode, stderr)
+        _notify(
+            f"ReadAloud: systemctl {action} failed",
+            stderr[:200] or f"Exit code {r.returncode}",
+        )
+    return r.returncode
 
 
 def _daemon_active() -> bool:
@@ -59,6 +129,26 @@ def _daemon_active() -> bool:
         return r.stdout.strip() == "active"
     except Exception:  # noqa: BLE001
         return False
+
+
+def _daemon_state() -> str:
+    """Ask the daemon what state it is in via GET /state.
+
+    Returns the state string ("idle", "warming", "speaking", "paused")
+    if the daemon answers, or "" on any failure (daemon down, HTTP
+    error, bad JSON). The indicator uses this to distinguish the
+    "warming" state from plain "idle" so the menu can grey out the
+    Speak item during cold-start. 500 ms connect / read timeouts keep
+    the GTK main loop responsive.
+    """
+    try:
+        from urllib.request import urlopen
+
+        with urlopen("http://127.0.0.1:5487/state", timeout=0.5) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        return str(data.get("state", ""))
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 class ReadAloudIndicator:
@@ -75,10 +165,19 @@ class ReadAloudIndicator:
         self._build_menu()
         self.indicator.set_menu(self.menu)
 
+        # Cached current icon to avoid re-calling set_icon_full every
+        # poll (which was causing unnecessary DBus traffic and, on some
+        # versions of libayatana-appindicator, visible icon flicker).
+        self._current_icon: str | None = None
+        # Cached control window so the menu opens the SAME window every
+        # time instead of leaking a new GtkWindow on each click.
+        self._control_window = None
+
         # Prime the state so the menu label and icon reflect reality.
         self._refresh_state()
-        # Poll every 2 seconds so external systemctl changes show up too.
-        GLib.timeout_add_seconds(2, self._refresh_state)
+        # Poll every 3 seconds so external systemctl changes show up
+        # without waking the CPU too often.
+        GLib.timeout_add_seconds(3, self._refresh_state)
 
     # ---------- menu ----------
 
@@ -117,15 +216,43 @@ class ReadAloudIndicator:
 
     def _refresh_state(self) -> bool:
         active = _daemon_active()
-        if active:
-            self.item_toggle_daemon.set_label("Stop daemon (free GPU)")
-            self.indicator.set_icon_full(ICON_RUNNING, "ReadAloud: running")
+        # Distinguish warming from plain active by asking the daemon
+        # directly. If the daemon isn't responding yet (fresh start,
+        # warming in progress, or HTTP error), fall back to the
+        # systemctl is-active result.
+        state_str = _daemon_state() if active else ""
+        warming = state_str == "warming"
+
+        if warming:
+            desired_icon = ICON_WARMING
+            desired_tooltip = "ReadAloud: warming up"
+            desired_toggle_label = "Stop daemon (warming…)"
+        elif active:
+            desired_icon = ICON_RUNNING
+            desired_tooltip = "ReadAloud: running"
+            desired_toggle_label = "Stop daemon (free GPU)"
         else:
-            self.item_toggle_daemon.set_label("Start daemon")
-            self.indicator.set_icon_full(ICON_STOPPED, "ReadAloud: stopped")
-        # Gray out actions that require the daemon.
+            desired_icon = ICON_STOPPED
+            desired_tooltip = "ReadAloud: stopped"
+            desired_toggle_label = "Start daemon"
+
+        # Only update the icon if it actually changed, to avoid DBus
+        # churn and tray flicker.
+        if desired_icon != self._current_icon:
+            self.indicator.set_icon_full(desired_icon, desired_tooltip)
+            self._current_icon = desired_icon
+        if self.item_toggle_daemon.get_label() != desired_toggle_label:
+            self.item_toggle_daemon.set_label(desired_toggle_label)
+
+        # Grey out playback actions unless the daemon is fully ready.
+        ready_for_playback = active and not warming
         for it in (self.item_speak, self.item_pause, self.item_stop):
-            it.set_sensitive(active)
+            it.set_sensitive(ready_for_playback)
+
+        # Toggling while warming is always allowed (user may want to
+        # abort the warmup), but the Control window needs the daemon
+        # running at all, not just warmed up — leave it sensitive
+        # whenever the daemon is active or stopped (never disabled).
         return True  # keep polling
 
     # ---------- menu handlers ----------
@@ -136,22 +263,58 @@ class ReadAloudIndicator:
         # Poll state again in 500ms to catch up with systemd.
         GLib.timeout_add(500, self._refresh_state)
 
+    def _spawn_detached(self, args: list[str]) -> None:
+        """Launch a CLI subcommand from a menu click.
+
+        `start_new_session=True` detaches the child into its own process
+        group so it won't become a zombie under the indicator process.
+        stdin/stdout/stderr are redirected to /dev/null so a closed
+        terminal doesn't SIGPIPE the child.
+        """
+        try:
+            subprocess.Popen(
+                args,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except (OSError, subprocess.SubprocessError) as e:
+            log.error("Popen %s failed: %s", args[0], e)
+            _notify("ReadAloud: could not invoke CLI", str(e))
+
     def _on_speak_selection(self, _src) -> None:
-        subprocess.Popen([READALOUD_BIN, "speak-selection"])
+        self._spawn_detached([READALOUD_BIN, "speak-selection"])
 
     def _on_pause_resume(self, _src) -> None:
-        subprocess.Popen([READALOUD_BIN, "toggle"])
+        self._spawn_detached([READALOUD_BIN, "toggle"])
 
     def _on_stop_playback(self, _src) -> None:
-        subprocess.Popen([READALOUD_BIN, "stop"])
+        self._spawn_detached([READALOUD_BIN, "stop"])
 
     def _on_control(self, _src) -> None:
         # Import here so the indicator starts even if the control window
-        # has a transient issue.
-        from .gui_control import ControlWindow
-
-        win = ControlWindow()
-        win.present()
+        # has a transient issue (e.g., gsettings schema missing).
+        try:
+            from .gui_control import ControlWindow
+        except Exception as e:  # noqa: BLE001
+            log.error("failed to import ControlWindow: %s", e)
+            _notify("ReadAloud: control window unavailable", str(e))
+            return
+        # Reuse an existing window instance so repeated menu clicks
+        # don't leak new windows on every open.
+        if self._control_window is None or not self._control_window.get_visible():
+            try:
+                self._control_window = ControlWindow()
+                self._control_window.connect(
+                    "destroy", lambda *_: setattr(self, "_control_window", None)
+                )
+            except Exception as e:  # noqa: BLE001
+                log.exception("ControlWindow construction failed: %s", e)
+                _notify("ReadAloud: control window error", str(e)[:200])
+                self._control_window = None
+                return
+        self._control_window.present()
 
     def _on_quit(self, _src) -> None:
         Gtk.main_quit()

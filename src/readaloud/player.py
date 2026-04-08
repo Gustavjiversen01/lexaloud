@@ -71,6 +71,11 @@ class PlayerState:
     ready_count: int
     provider_name: str
     session_providers: list[str]
+    # Set by the producer when a whole job fails due to synthesis errors
+    # (as opposed to cancellation). Exposed via /state so the CLI and
+    # tray indicator can surface it to the user instead of silently
+    # going back to "idle" with no audio played.
+    last_error: str | None = None
 
 
 class Player:
@@ -117,6 +122,7 @@ class Player:
         self._current_sentence: str | None = None
         self._last_finished_sentence: str | None = None
         self._state: State = "idle"
+        self._last_error: str | None = None
 
         # Protects transitions that mutate job state (stop/skip/back/speak).
         # Prevents two concurrent HTTP requests from entangling their
@@ -136,6 +142,7 @@ class Player:
             session_providers=list(
                 getattr(self._provider, "session_providers", []) or []
             ),
+            last_error=self._last_error,
         )
 
     def set_warming(self, warming: bool) -> None:
@@ -158,6 +165,8 @@ class Player:
     async def _producer(self, job_id: int) -> None:
         log.debug("producer job=%d starting", job_id)
         sentinel_sent = False
+        attempts = 0
+        successes = 0
         try:
             while True:
                 if not self._is_current_job(job_id):
@@ -168,10 +177,26 @@ class Player:
                     # No more sentences; signal end-of-job to the consumer.
                     await self._ready.put(None)
                     sentinel_sent = True
+                    # If every synthesize() call in this job returned None,
+                    # there was a systemic failure (bad voice, GPU OOM,
+                    # model corruption). Surface it via `last_error` so the
+                    # CLI and tray indicator can tell the user instead of
+                    # silently going idle with zero audio.
+                    if attempts > 0 and successes == 0:
+                        self._last_error = (
+                            "Synthesis produced no audio for any sentence in "
+                            "this job. Check the daemon log "
+                            "(`journalctl --user -u readaloud -n 100`) for "
+                            "details — likely causes: invalid voice name in "
+                            "config, GPU out-of-memory, or corrupted model "
+                            "files."
+                        )
+                        log.error("job=%d: %s", job_id, self._last_error)
                     return
                 # Track this sentence as in-flight so skip/back can recover it.
                 self._in_flight.append(sentence)
                 try:
+                    attempts += 1
                     chunk = await self._provider.synthesize(
                         sentence, job_id, self._is_current_job
                     )
@@ -184,13 +209,34 @@ class Player:
                     except ValueError:
                         pass
                     raise
-                if chunk is None or not self._is_current_job(job_id):
-                    # Provider saw cancellation; drop the in-flight record.
+                if chunk is None:
+                    # Either the job was superseded (cancellation) or the
+                    # provider failed. Drop the in-flight record; if the
+                    # job is still current, the None was a synthesis
+                    # failure, not a cancellation — count it so we can
+                    # surface the systemic error at end-of-job.
+                    try:
+                        self._in_flight.remove(sentence)
+                    except ValueError:
+                        pass
+                    if not self._is_current_job(job_id):
+                        return
+                    # Synthesis failed but the job wasn't cancelled —
+                    # continue trying subsequent sentences. If they all
+                    # fail, the end-of-job path will set last_error.
+                    log.warning(
+                        "job=%d: synthesize returned None for sentence: %.60r",
+                        job_id,
+                        sentence,
+                    )
+                    continue
+                if not self._is_current_job(job_id):
                     try:
                         self._in_flight.remove(sentence)
                     except ValueError:
                         pass
                     return
+                successes += 1
                 # Attach the source sentence as metadata so the consumer
                 # can report it in /state.
                 chunk.metadata.setdefault("sentence", sentence)
@@ -208,6 +254,7 @@ class Player:
             raise
         except Exception as e:  # noqa: BLE001
             log.exception("producer job=%d failed: %s", job_id, e)
+            self._last_error = f"producer task crashed: {e}"
         finally:
             # Ensure the consumer is never left waiting for a sentinel that
             # never arrives, even if an exception killed the producer.
@@ -489,6 +536,10 @@ class Player:
                 return self._current_job_id
 
             await self._full_stop()
+            # Clear any prior error message so the fresh job starts with a
+            # clean state; the producer will set last_error again if it
+            # hits a systemic failure during THIS job.
+            self._last_error = None
             new_job = self._current_job_id + 1
             self._current_job_id = new_job
             self._pending.extend(sentences)
@@ -499,7 +550,13 @@ class Player:
 
     async def pause(self) -> None:
         async with self._control_lock:
-            if self._state in ("speaking", "warming"):
+            # Pause only takes effect while actively speaking. Pausing
+            # from "warming" would transition state to "paused" with no
+            # running producer — resume would then flip to "speaking"
+            # with no audio, leaving the player in a zombie state where
+            # /state lies. The correct behavior is to ignore the pause
+            # request entirely; warmup will finish on its own.
+            if self._state == "speaking":
                 self._pause.clear()
                 self._state = "paused"
 

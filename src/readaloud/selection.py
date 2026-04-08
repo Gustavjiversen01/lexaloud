@@ -45,6 +45,15 @@ class SelectionTimeout(SelectionError):
     """Capture subprocess exceeded its timeout."""
 
 
+class SelectionDisplayUnavailable(SelectionError):
+    """Display server is unreachable (no DISPLAY, X auth failure, etc.).
+
+    This is distinct from `SelectionEmpty` because the CLI should tell the
+    user "ReadAloud can't reach your display server" rather than the
+    misleading "Select text first" notification.
+    """
+
+
 @dataclass
 class CaptureResult:
     text: str
@@ -72,6 +81,26 @@ def _utf8_safe_truncate(data: bytes, max_bytes: int) -> bytes:
     return data[:cut]
 
 
+# Substrings that indicate the capture tool couldn't reach the display
+# server at all — as opposed to "there was no selection to read". Matched
+# case-insensitively against the tool's stderr. Entries come from real
+# `xclip`, `xsel`, and `wl-paste` failure messages.
+_DISPLAY_FAILURE_MARKERS = (
+    "can't open display",
+    "cannot open display",
+    "unable to open display",
+    "no display",
+    "display name is missing",
+    "authorization",
+    "not authorized",
+    "wayland_display",
+    "no wayland connection",
+    "compositor doesn't support",
+    "could not connect",
+    "failed to connect",
+)
+
+
 def _run_capture(cmd: list[str], timeout_s: float) -> bytes:
     if shutil.which(cmd[0]) is None:
         raise SelectionToolMissing(f"{cmd[0]} is not installed")
@@ -86,11 +115,18 @@ def _run_capture(cmd: list[str], timeout_s: float) -> bytes:
     except subprocess.TimeoutExpired:
         raise SelectionTimeout(f"{' '.join(cmd)} timed out after {timeout_s}s")
     if proc.returncode != 0:
-        # xclip returns non-zero when the selection is empty; we log any
-        # stderr at debug level so misconfigured sessions (display server
-        # unreachable, permission denied, etc.) leave a diagnostic trail
-        # without affecting the empty-selection UX.
+        # xclip/wl-paste return non-zero BOTH for "the selection is empty"
+        # AND for real failures like "can't open display". Distinguish by
+        # matching the stderr against known display-failure markers; real
+        # empty selections produce an empty (or no) stderr. This kills the
+        # "hit hotkey, get 'Select text first' — but I did select text!"
+        # confusion reported by Agent 4.
         stderr = (proc.stderr or b"").decode("utf-8", errors="replace").strip()
+        lowered = stderr.lower()
+        if any(marker in lowered for marker in _DISPLAY_FAILURE_MARKERS):
+            raise SelectionDisplayUnavailable(
+                f"{cmd[0]} cannot reach the display server: {stderr}"
+            )
         if stderr:
             log.debug("%s exited %d with stderr: %s", cmd[0], proc.returncode, stderr)
         return b""

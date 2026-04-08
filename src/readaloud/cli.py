@@ -27,12 +27,12 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from pathlib import Path
 
 from . import __version__
 from .config import load_config
 from .selection import (
     CaptureResult,
+    SelectionDisplayUnavailable,
     SelectionEmpty,
     SelectionError,
     SelectionTimeout,
@@ -82,18 +82,13 @@ def _parse_json_or_exit(resp) -> dict:
         sys.exit(EXIT_GENERIC_ERROR)
 
 
-# connect: 1.5s (tolerates brief contention on busy systems);
-# read: 5s (routes should return fast; Player.speak is non-blocking).
-_DAEMON_TIMEOUT = None  # built lazily in _client()
-
-
 def _client():
+    # connect: 3s (tolerates brief contention on busy systems and the
+    # 1-3s systemd startup window right after `enable --now`);
+    # read: 5s (routes should return fast; Player.speak is non-blocking).
     import httpx
 
-    global _DAEMON_TIMEOUT
-    if _DAEMON_TIMEOUT is None:
-        _DAEMON_TIMEOUT = httpx.Timeout(5.0, connect=1.5)
-    return httpx.Client(timeout=_DAEMON_TIMEOUT)
+    return httpx.Client(timeout=httpx.Timeout(5.0, connect=3.0))
 
 
 def _post_to_daemon(path: str, json_body: dict | None = None) -> dict:
@@ -172,6 +167,16 @@ def _do_capture_and_speak(capture_fn, source_label: str, args) -> int:
     max_bytes = args.max_bytes or cfg.capture.max_bytes
     try:
         result: CaptureResult = capture_fn(max_bytes, cfg.capture.subprocess_timeout_s)
+    except SelectionDisplayUnavailable as e:
+        # Distinct from "empty selection" — the capture tool could not
+        # reach the display server. Tell the user what to actually check
+        # instead of the misleading "Select text first".
+        print(str(e), file=sys.stderr)
+        try_notify(
+            "ReadAloud: cannot reach display server",
+            "Is DISPLAY set? Are you running from a session that can talk to X/Wayland?",
+        )
+        return EXIT_TOOL_MISSING_OR_TIMEOUT
     except SelectionEmpty as e:
         print(str(e), file=sys.stderr)
         if source_label == "primary":

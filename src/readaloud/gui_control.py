@@ -13,16 +13,21 @@ without a daemon restart.
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
+from .config import config_path as _shared_config_path
+
+log = logging.getLogger(__name__)
+
 # Reuse the same system-site-packages prepend trick as the indicator.
-try:  # pragma: no cover
+try:
     import gi  # type: ignore
-except ImportError:  # pragma: no cover
+except ImportError:
     sys.path.append("/usr/lib/python3/dist-packages")
     import gi  # type: ignore
 
@@ -60,57 +65,127 @@ LANGUAGES: list[tuple[str, str]] = [
 # --- GNOME custom-keybinding schema paths --------------------------------
 
 KB_SCHEMA = "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding"
-KB_ARRAY = "org.gnome.settings-daemon.plugins.media-keys"
+KB_ARRAY_SCHEMA = "org.gnome.settings-daemon.plugins.media-keys"
 KB_ARRAY_KEY = "custom-keybindings"
 
 KB_BASE = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
 
+# (path_suffix, human label, command tail to invoke readaloud <tail>)
 SHORTCUTS: list[tuple[str, str, str]] = [
-    # (key: path_suffix, label, default-command-tail-for-readaloud)
     ("readaloud", "Speak highlighted selection", "speak-selection"),
     ("readaloud-toggle", "Pause / resume", "toggle"),
     # Note: daemon start/stop is handled by the tray indicator, not a hotkey.
 ]
 
 
+def _readaloud_binary() -> str:
+    """Resolve the absolute `readaloud` binary path for use in custom
+    shortcut commands. Kept stable across sessions so the binding survives
+    venv reinstalls at the same path."""
+    venv_bin = Path(sys.executable).parent
+    return str(venv_bin / "readaloud")
+
+
 # --- config.toml read/write ---------------------------------------------
 
 
 def _config_path() -> Path:
-    base = os.environ.get("XDG_CONFIG_HOME")
-    root = Path(base) if base else Path.home() / ".config"
-    return root / "readaloud" / "config.toml"
+    """Shared with `readaloud.config.config_path`; kept as a local
+    re-export so existing callers don't need to change."""
+    return _shared_config_path()
 
 
 def _load_config_dict() -> dict:
     p = _config_path()
     if not p.exists():
         return {}
-    with p.open("rb") as f:
-        return tomllib.load(f)
+    try:
+        with p.open("rb") as f:
+            return tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        # Don't let a broken config.toml crash the control window when
+        # the user clicks "Control window…" from the tray. Log and
+        # return an empty dict; the GUI will show defaults, and Apply
+        # will rewrite a clean file.
+        log.error("Config file %s has a syntax error: %s", p, e)
+        return {}
+    except OSError as e:
+        log.error("Could not read %s: %s", p, e)
+        return {}
+
+
+def _toml_escape(s: str) -> str:
+    """Escape a Python str for TOML basic-string syntax.
+
+    Handles the full control-character set that TOML requires escaped:
+    backslash, double-quote, \\b, \\t, \\n, \\f, \\r, plus any other
+    code point in U+0000..U+001F or U+007F as a \\uXXXX escape. The
+    hand-rolled replacer used earlier (only `\\\\` + `\\"`) would
+    corrupt strings containing tabs or newlines and cause tomllib to
+    refuse to re-load the file.
+    """
+    out: list[str] = []
+    for ch in s:
+        cp = ord(ch)
+        if ch == "\\":
+            out.append("\\\\")
+        elif ch == '"':
+            out.append('\\"')
+        elif ch == "\b":
+            out.append("\\b")
+        elif ch == "\t":
+            out.append("\\t")
+        elif ch == "\n":
+            out.append("\\n")
+        elif ch == "\f":
+            out.append("\\f")
+        elif ch == "\r":
+            out.append("\\r")
+        elif cp < 0x20 or cp == 0x7F:
+            out.append(f"\\u{cp:04X}")
+        else:
+            out.append(ch)
+    return "".join(out)
 
 
 def _save_config_dict(data: dict) -> None:
+    """Serialize `data` back to config.toml.
+
+    Known limitation: only scalars (str, bool, int, float) are preserved.
+    Arrays and nested tables present in the input dict are dropped with a
+    WARNING log entry rather than silently corrupted. For v1 this is
+    acceptable because the only dict we round-trip through the GUI is one
+    that the GUI itself wrote — all scalars. Users with custom TOML
+    features should edit config.toml directly (the control window never
+    writes those sections) and avoid re-saving via Apply.
+    """
     p = _config_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     for section, fields in data.items():
         if not isinstance(fields, dict):
             continue
-        lines.append(f"[{section}]")
+        section_lines: list[str] = []
         for key, value in fields.items():
-            if isinstance(value, str):
-                # Basic escaping: double-quote wrap, escape backslash/quote.
-                esc = value.replace("\\", "\\\\").replace('"', '\\"')
-                lines.append(f'{key} = "{esc}"')
-            elif isinstance(value, bool):
-                lines.append(f"{key} = {'true' if value else 'false'}")
+            if isinstance(value, bool):
+                section_lines.append(f"{key} = {'true' if value else 'false'}")
             elif isinstance(value, (int, float)):
-                lines.append(f"{key} = {value}")
+                section_lines.append(f"{key} = {value}")
+            elif isinstance(value, str):
+                section_lines.append(f'{key} = "{_toml_escape(value)}"')
             else:
-                # Skip unsupported types rather than corrupting the file.
-                continue
-        lines.append("")
+                log.warning(
+                    "Dropping config key [%s].%s with unsupported type %s "
+                    "during GUI save",
+                    section,
+                    key,
+                    type(value).__name__,
+                )
+        # Skip writing an empty [section] header if nothing valid survived.
+        if section_lines:
+            lines.append(f"[{section}]")
+            lines.extend(section_lines)
+            lines.append("")
     p.write_text("\n".join(lines))
 
 
@@ -119,23 +194,104 @@ def _save_config_dict(data: dict) -> None:
 
 def _gsettings_get(schema: str, key: str, path: str | None = None) -> str:
     schema_arg = f"{schema}:{path}" if path else schema
-    r = subprocess.run(
-        ["gsettings", "get", schema_arg, key],
-        capture_output=True,
-        text=True,
-        timeout=2,
-    )
+    try:
+        r = subprocess.run(
+            ["gsettings", "get", schema_arg, key],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+        log.debug("gsettings get %s %s failed: %s", schema_arg, key, e)
+        return ""
+    if r.returncode != 0:
+        log.debug(
+            "gsettings get %s %s exited %d: %s",
+            schema_arg,
+            key,
+            r.returncode,
+            (r.stderr or "").strip(),
+        )
+        return ""
     return r.stdout.strip().strip("'").strip('"')
 
 
-def _gsettings_set(schema: str, key: str, value: str, path: str | None = None) -> None:
+def _gsettings_set(schema: str, key: str, value: str, path: str | None = None) -> bool:
+    """Return True on success, False on failure. Log details on failure."""
     schema_arg = f"{schema}:{path}" if path else schema
-    subprocess.run(
-        ["gsettings", "set", schema_arg, key, value],
-        check=False,
-        capture_output=True,
-        timeout=2,
-    )
+    try:
+        r = subprocess.run(
+            ["gsettings", "set", schema_arg, key, value],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+        log.error("gsettings set %s %s failed: %s", schema_arg, key, e)
+        return False
+    if r.returncode != 0:
+        log.error(
+            "gsettings set %s %s exited %d: %s",
+            schema_arg,
+            key,
+            r.returncode,
+            (r.stderr or "").strip(),
+        )
+        return False
+    return True
+
+
+def _custom_keybindings_array() -> list[str]:
+    """Read the gsettings custom-keybindings array, returning path suffixes
+    (including trailing slashes). Returns an empty list on any failure or
+    if the array is empty/unset."""
+    raw = _gsettings_get(KB_ARRAY_SCHEMA, KB_ARRAY_KEY)
+    if not raw or raw in ("@as []", "[]"):
+        return []
+    # gsettings prints the array as GVariant literal: ['/path1/', '/path2/']
+    try:
+        # Strip "@as " type prefix if present.
+        if raw.startswith("@as "):
+            raw = raw[4:]
+        # GVariant string literals use single quotes; Python's eval would
+        # work but is unsafe. Parse manually: split on ', ' inside [ ].
+        inner = raw.strip("[]").strip()
+        if not inner:
+            return []
+        parts = [p.strip().strip("'").strip('"') for p in inner.split(",")]
+        return [p for p in parts if p]
+    except Exception as e:  # noqa: BLE001
+        log.warning("Could not parse custom-keybindings array %r: %s", raw, e)
+        return []
+
+
+def _ensure_keybinding_registered(path_suffix: str, label: str, command_tail: str) -> bool:
+    """Ensure a custom-keybinding exists in the `custom-keybindings`
+    array AND has `name` and `command` set on its schema path. Returns
+    True on success.
+
+    Without this, `set_shortcut_binding` would write the `binding` key
+    on a schema:path that GNOME never reads — because GNOME only
+    honors custom keybindings whose path is in the array. The result
+    was Agent 4's reported bug: the "Change…" button in the control
+    window updates the label but the shortcut does nothing system-wide.
+    """
+    path = f"{KB_BASE}/{path_suffix}/"
+
+    # 1. Make sure the path is in the array; append it if missing.
+    current = _custom_keybindings_array()
+    if path not in current:
+        new_list = current + [path]
+        gvariant = "[" + ", ".join(f"'{p}'" for p in new_list) + "]"
+        if not _gsettings_set(KB_ARRAY_SCHEMA, KB_ARRAY_KEY, gvariant):
+            return False
+
+    # 2. Make sure the name and command are set on the schema:path.
+    command = f"{_readaloud_binary()} {command_tail}"
+    ok_name = _gsettings_set(KB_SCHEMA, "name", label, path)
+    ok_cmd = _gsettings_set(KB_SCHEMA, "command", command, path)
+    return ok_name and ok_cmd
 
 
 def get_shortcut_binding(path_suffix: str) -> str:
@@ -145,66 +301,81 @@ def get_shortcut_binding(path_suffix: str) -> str:
     return _binding_to_human(raw)
 
 
-def set_shortcut_binding(path_suffix: str, gsettings_binding: str) -> None:
+def set_shortcut_binding(path_suffix: str, gsettings_binding: str) -> bool:
+    """Write a new binding for a ReadAloud custom keybinding.
+
+    Ensures the path is registered in the `custom-keybindings` array
+    and has `name` and `command` set, then writes the new `binding`.
+    Returns True on success, False on any gsettings failure. The
+    control window uses the return value to show an error dialog
+    instead of silently claiming success.
+    """
     path = f"{KB_BASE}/{path_suffix}/"
-    _gsettings_set(KB_SCHEMA, "binding", gsettings_binding, path)
+    # Look up the label and command tail from SHORTCUTS.
+    for suffix, label, tail in SHORTCUTS:
+        if suffix == path_suffix:
+            if not _ensure_keybinding_registered(path_suffix, label, tail):
+                return False
+            break
+    return _gsettings_set(KB_SCHEMA, "binding", gsettings_binding, path)
 
 
 def _binding_to_human(raw: str) -> str:
     """Convert gsettings binding syntax to a friendly display string.
 
-    '<Primary>0' -> 'Ctrl+0'
-    '<Primary><Shift>period' -> 'Ctrl+Shift+.'
+    Uses Gtk.accelerator_parse + Gtk.accelerator_get_label which handles
+    every X keysym (including NumPad keys, function keys, punctuation,
+    international layouts) and normalizes modifier order. Falls back
+    to the raw gsettings string if parsing fails.
     """
     if not raw:
         return "(unset)"
-    s = raw
-    mods = []
-    for tag, name in [
-        ("<Primary>", "Ctrl"),
-        ("<Control>", "Ctrl"),
-        ("<Shift>", "Shift"),
-        ("<Alt>", "Alt"),
-        ("<Super>", "Super"),
-    ]:
-        if tag in s:
-            mods.append(name)
-            s = s.replace(tag, "")
-    key_map = {"period": ".", "comma": ",", "slash": "/", "semicolon": ";"}
-    key = key_map.get(s, s)
-    return "+".join(mods + [key]) if mods else key
+    try:
+        keyval, mods = Gtk.accelerator_parse(raw)
+        if keyval == 0:
+            return raw  # parse failed; show raw as a diagnostic
+        label = Gtk.accelerator_get_label(keyval, mods)
+        return label if label else raw
+    except Exception:  # noqa: BLE001
+        return raw
 
 
 def _event_to_binding(event) -> str | None:
     """Turn a Gdk key-press event into a gsettings binding string.
 
-    Returns None if the user only pressed a modifier (no actual key).
+    Returns None for modifier-only presses, dead keys, and combinations
+    Gtk doesn't consider valid accelerators. Uses Gtk.accelerator_name
+    + Gtk.accelerator_valid to handle caps-lock, AltGr, level-3 chords,
+    and uppercase normalization correctly — this is what the hand-rolled
+    previous version was getting wrong per Agent 1's review.
     """
-    keyname = Gdk.keyval_name(event.keyval)
-    if keyname is None:
-        return None
-    # Ignore modifier-only presses so the user can hold mods without
-    # locking in an invalid binding.
+    keyval = event.keyval
+    state = event.state
+    keyname = Gdk.keyval_name(keyval) or ""
+
+    # Modifier-only presses: keep waiting for the real key.
     if keyname in (
         "Control_L", "Control_R",
         "Shift_L", "Shift_R",
         "Alt_L", "Alt_R",
         "Super_L", "Super_R",
         "Meta_L", "Meta_R",
+        "Hyper_L", "Hyper_R",
+        "ISO_Level3_Shift", "ISO_Level5_Shift",
     ):
         return None
-    parts: list[str] = []
-    mods = event.state
-    if mods & Gdk.ModifierType.CONTROL_MASK:
-        parts.append("<Primary>")
-    if mods & Gdk.ModifierType.SHIFT_MASK:
-        parts.append("<Shift>")
-    if mods & Gdk.ModifierType.MOD1_MASK:
-        parts.append("<Alt>")
-    if mods & Gdk.ModifierType.SUPER_MASK:
-        parts.append("<Super>")
-    parts.append(keyname)
-    return "".join(parts)
+
+    # Normalize state to only the modifier bits Gtk cares about.
+    mods = state & Gtk.accelerator_get_default_mod_mask()
+
+    # Reject combinations Gtk doesn't consider valid accelerators (e.g.,
+    # dead keys, plain letter with no modifier, etc.). This stops the
+    # user from "setting" a binding that GNOME will silently ignore.
+    if not Gtk.accelerator_valid(keyval, mods):
+        return None
+
+    name = Gtk.accelerator_name(keyval, mods)
+    return name if name else None
 
 
 # --- the window ---------------------------------------------------------
@@ -434,10 +605,31 @@ class ControlWindow(Gtk.Window):
 
     def _on_change_binding(self, _btn, path_suffix: str) -> None:
         dialog = _CaptureDialog(self, path_suffix)
-        dialog.run()
+        response = dialog.run()
+        captured = dialog.captured_binding
+        write_ok = dialog.write_ok
         dialog.destroy()
         # Refresh the label after the dialog closes.
         self.hotkey_labels[path_suffix].set_text(get_shortcut_binding(path_suffix))
+        # Post-write verification: if the user pressed a key and we
+        # thought we wrote it, make sure gsettings actually took the
+        # new value. Silent failures (schema missing, dbus down) would
+        # otherwise leave the label showing the OLD value after an
+        # apparently-successful capture.
+        if response == Gtk.ResponseType.OK and captured:
+            if not write_ok:
+                self.status_label.set_text(
+                    f"Failed to write hotkey binding to gsettings. "
+                    f"Check `journalctl --user` for details."
+                )
+                return
+            actual = _gsettings_get(KB_SCHEMA, "binding", f"{KB_BASE}/{path_suffix}/")
+            if actual != captured:
+                self.status_label.set_text(
+                    f"Hotkey write did not stick: expected {captured!r}, "
+                    f"gsettings still reports {actual!r}. Is the GNOME schema "
+                    f"registered?"
+                )
 
 
 class _CaptureDialog(Gtk.Dialog):
@@ -447,6 +639,9 @@ class _CaptureDialog(Gtk.Dialog):
         super().__init__(title="Press a new shortcut", transient_for=parent, flags=0)
         self.set_default_size(360, 120)
         self.path_suffix = path_suffix
+        self.captured_binding: str | None = None
+        self.write_ok: bool = False
+        self._captured = False
         self.set_modal(True)
         self.add_button("Cancel", Gtk.ResponseType.CANCEL)
 
@@ -460,17 +655,25 @@ class _CaptureDialog(Gtk.Dialog):
         box.pack_start(msg, True, True, 0)
 
         self.show_all()
-        self.connect("key-press-event", self._on_key_press)
+        self._handler_id = self.connect("key-press-event", self._on_key_press)
 
     def _on_key_press(self, _widget, event) -> bool:
+        if self._captured:
+            # A subsequent key-repeat event — we already committed the
+            # binding; ignore extras until the dialog tears down.
+            return True
         if event.keyval == Gdk.KEY_Escape:
             self.response(Gtk.ResponseType.CANCEL)
             return True
         binding = _event_to_binding(event)
         if binding is None:
-            # Modifier-only, keep waiting.
+            # Modifier-only, dead key, or otherwise-invalid — keep waiting.
             return True
-        set_shortcut_binding(self.path_suffix, binding)
+        self._captured = True
+        self.captured_binding = binding
+        self.write_ok = set_shortcut_binding(self.path_suffix, binding)
+        # Disconnect so key-repeat events after write don't re-trigger.
+        self.disconnect(self._handler_id)
         self.response(Gtk.ResponseType.OK)
         return True
 
