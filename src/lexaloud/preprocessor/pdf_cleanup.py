@@ -103,7 +103,7 @@ def _unwrap_lines(text: str) -> str:
         if not lines:
             continue
         pieces: list[str] = [lines[0]]
-        for prev, cur in zip(lines, lines[1:]):
+        for prev, cur in zip(lines, lines[1:], strict=False):
             if prev and prev[-1] in _TERMINAL_PUNCTUATION:
                 # Preserve sentence boundary: keep a newline so pysbd sees
                 # a hard break even though we still want the lines in the

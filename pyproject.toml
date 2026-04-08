@@ -114,12 +114,18 @@ select = [
     "W",   # pycodestyle warnings
     "B",   # flake8-bugbear
     "UP",  # pyupgrade
-    "SIM", # flake8-simplify
     "I",   # isort
 ]
 ignore = [
     "E501",  # line-too-long — formatter handles this
+    "B008",  # function call in default argument — FastAPI Depends() pattern
+    "B904",  # raise ... from within except — not worth auto-rewriting broad sites
+    "UP022", # prefer capture_output=True — cosmetic, we use stdout=PIPE explicitly
 ]
+# flake8-simplify (SIM) is deliberately NOT selected in v0.1.0: it catches
+# style-level things like "merge nested with statements" and
+# "contextlib.suppress instead of try/except/pass". Both are reasonable
+# but touch dozens of sites across the repo; tightening is a v0.2 task.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["B018"]  # useless expression is fine in tests

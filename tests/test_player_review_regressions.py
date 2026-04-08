@@ -51,9 +51,7 @@ async def test_producer_exception_does_not_hang_consumer():
         if player.state.state == "idle":
             break
         await asyncio.sleep(0.01)
-    assert player.state.state == "idle", (
-        "consumer hung waiting for a sentinel that never arrived"
-    )
+    assert player.state.state == "idle", "consumer hung waiting for a sentinel that never arrived"
 
 
 # ---------- BUG 2/3: skip/back lose pre-fetched sentences ----------
@@ -100,9 +98,7 @@ async def test_skip_does_not_lose_prefetched_sentences():
     sentences sitting in the ready queue. After skip, all remaining
     sentences must still play.
     """
-    provider = FakeProvider(
-        sample_rate=24000, seconds_per_sentence=0.02, synth_delay_ms=5
-    )
+    provider = FakeProvider(sample_rate=24000, seconds_per_sentence=0.02, synth_delay_ms=5)
     sink = NullSink()
     player = Player(provider, sink, ready_queue_depth=3)
 
@@ -122,8 +118,7 @@ async def test_skip_does_not_lose_prefetched_sentences():
     # sentence, so the consumer should have written at least 4 chunks in
     # total (via either the old consumer before skip or the new one after).
     assert sink.write_count >= 4, (
-        f"skip lost pre-fetched sentences: only {sink.write_count} written "
-        f"out of 5 submitted"
+        f"skip lost pre-fetched sentences: only {sink.write_count} written out of 5 submitted"
     )
 
 
@@ -132,9 +127,7 @@ async def test_back_rewinds_one_sentence():
     rewind so the player replays sentence 0 next. The total number of
     written chunks over the lifetime of the job must reflect the rewind.
     """
-    provider = FakeProvider(
-        sample_rate=24000, seconds_per_sentence=0.02, synth_delay_ms=5
-    )
+    provider = FakeProvider(sample_rate=24000, seconds_per_sentence=0.02, synth_delay_ms=5)
     sink = NullSink()
     player = Player(provider, sink, ready_queue_depth=2)
 
@@ -156,9 +149,7 @@ async def test_back_rewinds_one_sentence():
 
     # Total writes should equal at least the number of sentences submitted;
     # if back() rewound once, there will be a replay, so count >= 3 +1.
-    assert sink.write_count >= 3, (
-        f"back() lost sentences: only {sink.write_count} written"
-    )
+    assert sink.write_count >= 3, f"back() lost sentences: only {sink.write_count} written"
 
 
 # ---------- BUG 4: append-during-shutdown race ----------
@@ -169,9 +160,7 @@ async def test_append_after_producer_done_starts_fresh_job():
     fall through to starting a fresh job so the new sentences don't get
     stranded in pending with no consumer.
     """
-    provider = FakeProvider(
-        sample_rate=24000, seconds_per_sentence=0.01, synth_delay_ms=1
-    )
+    provider = FakeProvider(sample_rate=24000, seconds_per_sentence=0.01, synth_delay_ms=1)
     sink = NullSink()
     player = Player(provider, sink, ready_queue_depth=2)
 

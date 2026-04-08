@@ -19,6 +19,7 @@ def test_socket_path_under_xdg_runtime_dir(monkeypatch, tmp_path: Path):
 def test_socket_path_fallback_to_run_user_uid(monkeypatch):
     monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
     import os
+
     rt = runtime_dir()
     sock = socket_path()
     assert rt == Path(f"/run/user/{os.getuid()}")

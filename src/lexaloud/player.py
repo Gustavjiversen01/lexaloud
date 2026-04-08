@@ -70,6 +70,7 @@ def _sentence_token(sentence: str) -> str:
     digest = hashlib.sha1(sentence.encode("utf-8")).hexdigest()[:8]
     return f"{digest} ({len(sentence)}ch)"
 
+
 log = logging.getLogger(__name__)
 
 
@@ -152,9 +153,7 @@ class Player:
             pending_count=len(self._pending) + len(self._in_flight),
             ready_count=self._ready.qsize(),
             provider_name=getattr(self._provider, "name", "unknown"),
-            session_providers=list(
-                getattr(self._provider, "session_providers", []) or []
-            ),
+            session_providers=list(getattr(self._provider, "session_providers", []) or []),
             last_error=self._last_error,
         )
 
@@ -210,9 +209,7 @@ class Player:
                 self._in_flight.append(sentence)
                 try:
                     attempts += 1
-                    chunk = await self._provider.synthesize(
-                        sentence, job_id, self._is_current_job
-                    )
+                    chunk = await self._provider.synthesize(sentence, job_id, self._is_current_job)
                 except asyncio.CancelledError:
                     # On cancel, return the in-flight sentence to pending
                     # so recovery can process it.
@@ -304,23 +301,13 @@ class Player:
                 # provider or voice that emits a different shape so we
                 # don't silently feed mismatched samples into a stream
                 # configured for the wrong rate.
-                channels = (
-                    1
-                    if chunk.samples.ndim == 1
-                    else int(chunk.samples.shape[1])
-                )
-                if (
-                    not stream_open
-                    or chunk.sample_rate != stream_sr
-                    or channels != stream_ch
-                ):
+                channels = 1 if chunk.samples.ndim == 1 else int(chunk.samples.shape[1])
+                if not stream_open or chunk.sample_rate != stream_sr or channels != stream_ch:
                     if stream_open:
                         try:
                             await self._sink.end_stream()
                         except Exception as e:  # noqa: BLE001
-                            log.warning(
-                                "sink.end_stream failed during reopen: %s", e
-                            )
+                            log.warning("sink.end_stream failed during reopen: %s", e)
                     await self._sink.begin_stream(chunk.sample_rate, channels)
                     stream_sr = chunk.sample_rate
                     stream_ch = channels
@@ -331,9 +318,7 @@ class Player:
                 # natural pause that Kokoro's trim=True default strips.
                 if sentences_written > 0:
                     try:
-                        await self._write_silence_pad(
-                            stream_sr, stream_ch, job_id
-                        )
+                        await self._write_silence_pad(stream_sr, stream_ch, job_id)
                     except asyncio.CancelledError:
                         raise
                     except Exception as e:  # noqa: BLE001
@@ -357,9 +342,7 @@ class Player:
                     try:
                         await self._sink.stop()
                     except Exception as e2:  # noqa: BLE001
-                        log.warning(
-                            "sink.stop failed during error recovery: %s", e2
-                        )
+                        log.warning("sink.stop failed during error recovery: %s", e2)
                     return
                 if not self._is_current_job(job_id):
                     return
@@ -381,9 +364,7 @@ class Player:
                 self._state = "idle"
                 self._current_sentence = None
 
-    async def _write_silence_pad(
-        self, sample_rate: int, channels: int, job_id: int
-    ) -> None:
+    async def _write_silence_pad(self, sample_rate: int, channels: int, job_id: int) -> None:
         """Write a short silence chunk between sentences.
 
         Short enough (~180ms) that pause-event checking inside it is
@@ -453,25 +434,19 @@ class Player:
             raise RuntimeError("producer task not clean before _start_tasks")
         if self._consumer_task is not None and not self._consumer_task.done():
             raise RuntimeError("consumer task not clean before _start_tasks")
-        self._producer_task = asyncio.create_task(
-            self._producer(job_id), name=f"producer-{job_id}"
-        )
-        self._consumer_task = asyncio.create_task(
-            self._consumer(job_id), name=f"consumer-{job_id}"
-        )
+        self._producer_task = asyncio.create_task(self._producer(job_id), name=f"producer-{job_id}")
+        self._consumer_task = asyncio.create_task(self._consumer(job_id), name=f"consumer-{job_id}")
 
     async def _cancel_tasks(self) -> None:
         tasks = [
-            t
-            for t in (self._producer_task, self._consumer_task)
-            if t is not None and not t.done()
+            t for t in (self._producer_task, self._consumer_task) if t is not None and not t.done()
         ]
         for t in tasks:
             t.cancel()
         # Await concurrently so a slow producer doesn't gate the consumer.
         if tasks:
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            for t, r in zip(tasks, results):
+            for t, r in zip(tasks, results, strict=True):
                 if isinstance(r, asyncio.CancelledError):
                     pass
                 elif isinstance(r, BaseException):
@@ -527,14 +502,8 @@ class Player:
             # producer has already exited (e.g., last sentence completed
             # just before the append arrived), treat this as a fresh job
             # to avoid stranded sentences.
-            producer_alive = (
-                self._producer_task is not None and not self._producer_task.done()
-            )
-            if (
-                mode == "append"
-                and self._state in ("speaking", "paused")
-                and producer_alive
-            ):
+            producer_alive = self._producer_task is not None and not self._producer_task.done()
+            if mode == "append" and self._state in ("speaking", "paused") and producer_alive:
                 self._pending.extend(sentences)
                 return self._current_job_id
 

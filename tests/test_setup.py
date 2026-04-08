@@ -30,10 +30,10 @@ def test_systemd_unit_handles_paths_with_spaces():
 
 
 def test_systemd_quote_escapes_backslashes_and_quotes():
-    assert _systemd_quote('/tmp/x') == '"/tmp/x"'
-    assert _systemd_quote('/tmp/a b') == '"/tmp/a b"'
+    assert _systemd_quote("/tmp/x") == '"/tmp/x"'
+    assert _systemd_quote("/tmp/a b") == '"/tmp/a b"'
     assert _systemd_quote('/tmp/a"b') == '"/tmp/a\\"b"'
-    assert _systemd_quote('/tmp/a\\b') == '"/tmp/a\\\\b"'
+    assert _systemd_quote("/tmp/a\\b") == '"/tmp/a\\\\b"'
 
 
 def test_resolve_binary_uses_which(tmp_path: Path):
@@ -59,9 +59,7 @@ def test_resolve_binary_falls_back_to_sys_executable(tmp_path: Path, monkeypatch
     assert result == fake_lexaloud
 
 
-def test_resolve_binary_does_not_follow_venv_python_symlink(
-    tmp_path: Path, monkeypatch
-):
+def test_resolve_binary_does_not_follow_venv_python_symlink(tmp_path: Path, monkeypatch):
     """Regression: in a venv, sys.executable is a symlink to the system python
     (e.g. /usr/bin/python3). _resolve_binary must NOT .resolve() it, otherwise
     it looks for /usr/bin/lexaloud instead of the venv's bin dir.

@@ -95,9 +95,7 @@ async def test_wav_sink_rejects_mismatched_sample_rate(tmp_path: Path):
     sink = WavSink(tmp_path)
     await sink.begin_stream(24000, 1)
     with pytest.raises(ValueError):
-        await sink.write(
-            AudioChunk(samples=np.zeros(10, dtype=np.float32), sample_rate=48000)
-        )
+        await sink.write(AudioChunk(samples=np.zeros(10, dtype=np.float32), sample_rate=48000))
 
 
 def test_sounddevice_sink_does_not_open_on_construction():

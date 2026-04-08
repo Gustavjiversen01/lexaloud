@@ -58,8 +58,8 @@ class DistroInfo:
 class DesktopInfo:
     """Result of `detect_desktop()`."""
 
-    name: str              # e.g. "GNOME", "KDE", "XFCE", "sway", "unknown"
-    session_type: str      # "wayland" | "x11" | "tty" | "unknown"
+    name: str  # e.g. "GNOME", "KDE", "XFCE", "sway", "unknown"
+    session_type: str  # "wayland" | "x11" | "tty" | "unknown"
 
     @property
     def is_wayland(self) -> bool:
@@ -83,8 +83,8 @@ class DesktopInfo:
 class GpuInfo:
     """Result of `detect_gpu()`."""
 
-    vendor: str   # "nvidia" | "amd" | "intel" | "none"
-    device: str   # free-form device name, or "" if unknown/none
+    vendor: str  # "nvidia" | "amd" | "intel" | "none"
+    device: str  # free-form device name, or "" if unknown/none
 
 
 def detect_distro() -> DistroInfo:
@@ -129,16 +129,29 @@ def detect_desktop() -> DesktopInfo:
     normalize to uppercase-friendly form.
     """
     current = (
-        os.environ.get("XDG_CURRENT_DESKTOP")
-        or os.environ.get("DESKTOP_SESSION")
-        or "unknown"
+        os.environ.get("XDG_CURRENT_DESKTOP") or os.environ.get("DESKTOP_SESSION") or "unknown"
     )
     # XDG_CURRENT_DESKTOP may be colon-separated; prefer a well-known DE name.
     parts = [p for p in current.split(":") if p]
     preferred = ""
     for candidate in parts:
         upper = candidate.upper()
-        if any(known in upper for known in ("GNOME", "KDE", "PLASMA", "XFCE", "CINNAMON", "MATE", "LXQT", "LXDE", "SWAY", "HYPRLAND", "I3")):
+        if any(
+            known in upper
+            for known in (
+                "GNOME",
+                "KDE",
+                "PLASMA",
+                "XFCE",
+                "CINNAMON",
+                "MATE",
+                "LXQT",
+                "LXDE",
+                "SWAY",
+                "HYPRLAND",
+                "I3",
+            )
+        ):
             preferred = candidate
             break
     name = preferred or (parts[0] if parts else "unknown")

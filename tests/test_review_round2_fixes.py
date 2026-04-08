@@ -26,7 +26,6 @@ from lexaloud.selection import (
     _run_capture,
 )
 
-
 # ---------------------------------------------------------------------
 # last_error propagation
 # ---------------------------------------------------------------------
@@ -65,7 +64,10 @@ async def test_last_error_set_when_all_synthesis_fails():
     assert sink.samples_received == 0
     # last_error was populated with an actionable message.
     assert player.state.last_error is not None
-    assert "journalctl" in player.state.last_error.lower() or "synthesis" in player.state.last_error.lower()
+    assert (
+        "journalctl" in player.state.last_error.lower()
+        or "synthesis" in player.state.last_error.lower()
+    )
 
 
 async def test_last_error_cleared_on_new_speak():
@@ -113,44 +115,44 @@ async def test_last_error_not_set_for_cancellation():
 
 
 def _completed(returncode: int, stdout: bytes = b"", stderr: bytes = b""):
-    return subprocess.CompletedProcess(
-        args=[], returncode=returncode, stdout=stdout, stderr=stderr
-    )
+    return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
 
 
 def test_display_unavailable_raised_on_xclip_cant_open_display():
-    with patch("lexaloud.selection.shutil.which", return_value="/usr/bin/xclip"):
-        with patch(
+    with (
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/xclip"),
+        patch(
             "lexaloud.selection.subprocess.run",
-            return_value=_completed(
-                1, stdout=b"", stderr=b"Error: Can't open display: \n"
-            ),
-        ):
-            with pytest.raises(SelectionDisplayUnavailable):
-                _run_capture(["xclip", "-o", "-selection", "primary"], 1.0)
+            return_value=_completed(1, stdout=b"", stderr=b"Error: Can't open display: \n"),
+        ),
+        pytest.raises(SelectionDisplayUnavailable),
+    ):
+        _run_capture(["xclip", "-o", "-selection", "primary"], 1.0)
 
 
 def test_display_unavailable_raised_on_wl_paste_no_connection():
-    with patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"):
-        with patch(
+    with (
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"),
+        patch(
             "lexaloud.selection.subprocess.run",
-            return_value=_completed(
-                1, stderr=b"failed to connect to wayland display\n"
-            ),
-        ):
-            with pytest.raises(SelectionDisplayUnavailable):
-                _run_capture(["wl-paste", "--primary", "--no-newline"], 1.0)
+            return_value=_completed(1, stderr=b"failed to connect to wayland display\n"),
+        ),
+        pytest.raises(SelectionDisplayUnavailable),
+    ):
+        _run_capture(["wl-paste", "--primary", "--no-newline"], 1.0)
 
 
 def test_empty_selection_still_returns_empty_bytes_not_display_error():
     """An empty selection (xclip exit 1 with empty stderr) must still
     produce an empty bytes result, not a SelectionDisplayUnavailable."""
-    with patch("lexaloud.selection.shutil.which", return_value="/usr/bin/xclip"):
-        with patch(
+    with (
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/xclip"),
+        patch(
             "lexaloud.selection.subprocess.run",
             return_value=_completed(1, stdout=b"", stderr=b""),
-        ):
-            result = _run_capture(["xclip", "-o", "-selection", "primary"], 1.0)
+        ),
+    ):
+        result = _run_capture(["xclip", "-o", "-selection", "primary"], 1.0)
     assert result == b""
 
 
@@ -170,7 +172,7 @@ def test_load_config_recovers_from_toml_syntax_error(tmp_path: Path):
 
 def test_load_config_recovers_from_read_error(tmp_path: Path, monkeypatch):
     path = tmp_path / "config.toml"
-    path.write_text("[provider]\nvoice = \"af_bella\"\n")
+    path.write_text('[provider]\nvoice = "af_bella"\n')
 
     # Simulate a permission-denied read.
     real_open = Path.open
@@ -193,7 +195,7 @@ def test_load_config_recovers_from_read_error(tmp_path: Path, monkeypatch):
 def test_toml_escape_handles_control_chars():
     from lexaloud.gui_control import _toml_escape
 
-    escaped = _toml_escape("line1\nline2\twith tab\tand \"quotes\"")
+    escaped = _toml_escape('line1\nline2\twith tab\tand "quotes"')
     # Every control char and quote is escaped.
     assert "\\n" in escaped
     assert "\\t" in escaped
@@ -204,7 +206,7 @@ def test_toml_escape_handles_control_chars():
 
 
 def test_toml_save_load_round_trip(tmp_path, monkeypatch):
-    from lexaloud.gui_control import _save_config_dict, _load_config_dict
+    from lexaloud.gui_control import _load_config_dict, _save_config_dict
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
@@ -221,7 +223,7 @@ def test_toml_save_load_round_trip(tmp_path, monkeypatch):
 
 
 def test_toml_save_warns_and_drops_unsupported_types(tmp_path, monkeypatch, caplog):
-    from lexaloud.gui_control import _save_config_dict, _load_config_dict
+    from lexaloud.gui_control import _load_config_dict, _save_config_dict
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 

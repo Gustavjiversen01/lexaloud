@@ -124,9 +124,7 @@ def _run_capture(cmd: list[str], timeout_s: float) -> bytes:
         stderr = (proc.stderr or b"").decode("utf-8", errors="replace").strip()
         lowered = stderr.lower()
         if any(marker in lowered for marker in _DISPLAY_FAILURE_MARKERS):
-            raise SelectionDisplayUnavailable(
-                f"{cmd[0]} cannot reach the display server: {stderr}"
-            )
+            raise SelectionDisplayUnavailable(f"{cmd[0]} cannot reach the display server: {stderr}")
         if stderr:
             log.debug("%s exited %d with stderr: %s", cmd[0], proc.returncode, stderr)
         return b""
@@ -161,15 +159,13 @@ def _pick_primary_tool(info) -> list[str]:
     if info.is_wayland:
         if not info.wl_paste:
             raise SelectionToolMissing(
-                "wl-paste is not installed. "
-                "Install wl-clipboard: `sudo apt install wl-clipboard`"
+                "wl-paste is not installed. Install wl-clipboard: `sudo apt install wl-clipboard`"
             )
         return ["wl-paste", "--primary", "--no-newline"]
     if info.is_x11:
         if not info.xclip:
             raise SelectionToolMissing(
-                "xclip is not installed. "
-                "Install it: `sudo apt install xclip`"
+                "xclip is not installed. Install it: `sudo apt install xclip`"
             )
         return ["xclip", "-o", "-selection", "primary"]
     # session_type == "unknown"
@@ -178,8 +174,7 @@ def _pick_primary_tool(info) -> list[str]:
     if info.xclip:
         return ["xclip", "-o", "-selection", "primary"]
     raise SelectionToolMissing(
-        "neither wl-paste nor xclip is installed; "
-        "run `sudo apt install wl-clipboard xclip`"
+        "neither wl-paste nor xclip is installed; run `sudo apt install wl-clipboard xclip`"
     )
 
 
@@ -188,15 +183,13 @@ def _pick_clipboard_tool(info) -> list[str]:
     if info.is_wayland:
         if not info.wl_paste:
             raise SelectionToolMissing(
-                "wl-paste is not installed. "
-                "Install wl-clipboard: `sudo apt install wl-clipboard`"
+                "wl-paste is not installed. Install wl-clipboard: `sudo apt install wl-clipboard`"
             )
         return ["wl-paste", "--no-newline"]
     if info.is_x11:
         if not info.xclip:
             raise SelectionToolMissing(
-                "xclip is not installed. "
-                "Install it: `sudo apt install xclip`"
+                "xclip is not installed. Install it: `sudo apt install xclip`"
             )
         return ["xclip", "-o", "-selection", "clipboard"]
     if info.wl_paste:
@@ -204,8 +197,7 @@ def _pick_clipboard_tool(info) -> list[str]:
     if info.xclip:
         return ["xclip", "-o", "-selection", "clipboard"]
     raise SelectionToolMissing(
-        "neither wl-paste nor xclip is installed; "
-        "run `sudo apt install wl-clipboard xclip`"
+        "neither wl-paste nor xclip is installed; run `sudo apt install wl-clipboard xclip`"
     )
 
 

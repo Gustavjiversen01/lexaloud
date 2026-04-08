@@ -99,9 +99,7 @@ def build_components(cfg: Config | None = None) -> DaemonComponents:
         speed=cfg.provider.speed,
     )
     sink: AudioSink = SoundDeviceSink()
-    player = Player(
-        provider=provider, sink=sink, ready_queue_depth=cfg.daemon.ready_queue_depth
-    )
+    player = Player(provider=provider, sink=sink, ready_queue_depth=cfg.daemon.ready_queue_depth)
     preproc_config = PreprocessorConfig(
         strip_numeric_bracket_citations=cfg.preprocessor.strip_numeric_bracket_citations,
         strip_parenthetical_citations=cfg.preprocessor.strip_parenthetical_citations,
@@ -191,17 +189,13 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
     @app.post("/speak", response_model=StateResponse)
     async def speak(req: SpeakRequest) -> StateResponse:
         if "\x00" in req.text:
-            raise HTTPException(
-                status_code=400, detail="text contains null bytes"
-            )
+            raise HTTPException(status_code=400, detail="text contains null bytes")
         if len(req.text.encode("utf-8")) > max_bytes:
             raise HTTPException(status_code=413, detail="text exceeds capture.max_bytes")
         sentences = preprocess(req.text, comps.preproc_config)
         if not sentences:
             raise HTTPException(status_code=400, detail="no synthesizable sentences")
-        too_long = [
-            (i, len(s)) for i, s in enumerate(sentences) if len(s) > MAX_SENTENCE_CHARS
-        ]
+        too_long = [(i, len(s)) for i, s in enumerate(sentences) if len(s) > MAX_SENTENCE_CHARS]
         if too_long:
             idx, length = too_long[0]
             raise HTTPException(
@@ -268,9 +262,7 @@ def run() -> None:
     import uvicorn
 
     _ = load_config()  # load_config still parses config.toml for side effects
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
     sock = socket_path()
     parent = sock.parent

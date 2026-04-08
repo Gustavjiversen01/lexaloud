@@ -21,7 +21,6 @@ from lexaloud.audio import NullSink, SoundDeviceSink
 from lexaloud.player import Player
 from lexaloud.providers.base import AudioChunk
 
-
 # ---------------------------------------------------------------------
 # Fix 1: SoundDeviceSink primes the stream with 100ms of silence
 # ---------------------------------------------------------------------
@@ -162,8 +161,7 @@ async def test_long_chunk_is_written_in_sub_blocks():
 
     # Expect roughly 10 sub-chunk writes for a 1.0s sentence.
     assert 8 <= sink.write_count <= 12, (
-        f"expected ~10 sub-chunk writes for a 1-second sentence, "
-        f"got {sink.write_count}"
+        f"expected ~10 sub-chunk writes for a 1-second sentence, got {sink.write_count}"
     )
     # All samples made it through regardless.
     assert sink.samples_received == provider.sample_rate
@@ -203,9 +201,7 @@ async def test_pause_interrupts_mid_sentence():
     await asyncio.sleep(0.1)
     after = sink.samples_received
 
-    assert after == snapshot, (
-        f"sink kept receiving samples while paused: {snapshot} -> {after}"
-    )
+    assert after == snapshot, f"sink kept receiving samples while paused: {snapshot} -> {after}"
     assert after < provider.sample_rate, (
         f"pause should have interrupted before the full sentence was written; "
         f"got {after} of {provider.sample_rate} samples"

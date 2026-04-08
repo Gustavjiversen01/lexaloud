@@ -206,9 +206,8 @@ class SoundDeviceSink:
     async def begin_stream(self, sample_rate: int, channels: int) -> None:
         async with self._lock:
             # If the rate/channels differ, close and reopen.
-            if (
-                self._stream is not None
-                and (self._stream_sample_rate != sample_rate or self._stream_channels != channels)
+            if self._stream is not None and (
+                self._stream_sample_rate != sample_rate or self._stream_channels != channels
             ):
                 self._close_stream()
             if self._stream is None:

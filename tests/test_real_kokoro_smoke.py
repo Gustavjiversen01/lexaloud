@@ -17,7 +17,6 @@ from lexaloud.models import ensure_artifacts
 from lexaloud.player import Player
 from lexaloud.providers.kokoro import KokoroProvider
 
-
 pytestmark = pytest.mark.skipif(
     os.environ.get("LEXALOUD_REAL_TTS") != "1",
     reason="set LEXALOUD_REAL_TTS=1 to run the real-Kokoro smoke test",

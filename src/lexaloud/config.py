@@ -135,8 +135,7 @@ def load_config(path: Path | None = None) -> Config:
         # restart loop. Log the error loudly so `journalctl --user -u
         # lexaloud` makes the cause obvious, and fall back to defaults.
         log.error(
-            "Failed to parse %s: %s. Using default configuration; edit the "
-            "file to fix the syntax.",
+            "Failed to parse %s: %s. Using default configuration; edit the file to fix the syntax.",
             p,
             e,
         )

@@ -16,9 +16,8 @@ import concurrent.futures
 from lexaloud.preprocessor import preprocess
 from lexaloud.preprocessor.abbreviations import expand_latin_abbreviations
 from lexaloud.preprocessor.citations import strip_parenthetical_citations
-from lexaloud.preprocessor.pdf_cleanup import clean_pdf_paste, _unwrap_lines
+from lexaloud.preprocessor.pdf_cleanup import _unwrap_lines, clean_pdf_paste
 from lexaloud.preprocessor.segmenter import split_sentences
-
 
 # ---------- Unicode hyphens ----------
 
@@ -122,10 +121,7 @@ def test_pysbd_is_thread_safe_under_concurrent_calls():
     We run 16 workers x 50 calls each, each segmenting a known-long passage,
     and assert every call returns the expected sentence count.
     """
-    text = (
-        "First sentence. Second sentence! Third sentence? "
-        "Fourth sentence. Fifth sentence."
-    )
+    text = "First sentence. Second sentence! Third sentence? Fourth sentence. Fifth sentence."
     expected_count = len(split_sentences(text))
 
     def _work() -> int:

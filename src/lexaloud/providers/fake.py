@@ -40,9 +40,7 @@ class FakeProvider:
         # warmup-vs-request ordering tests can observe a serialized state.
         await asyncio.sleep(self.synth_delay_ms / 1000.0)
 
-    async def synthesize(
-        self, sentence: str, job_id: int, is_current_job
-    ) -> AudioChunk | None:
+    async def synthesize(self, sentence: str, job_id: int, is_current_job) -> AudioChunk | None:
         if not is_current_job(job_id):
             self.cancelled_calls += 1
             return None

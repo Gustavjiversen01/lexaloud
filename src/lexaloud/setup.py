@@ -44,8 +44,8 @@ from .session import detect_session
 #   permissions; systemd cleans it up on service stop
 # - After=default.target only (sound.target isn't in the user manager)
 def _load_systemd_template() -> str:
-    return files("lexaloud.templates").joinpath("systemd.service.template").read_text(
-        encoding="utf-8"
+    return (
+        files("lexaloud.templates").joinpath("systemd.service.template").read_text(encoding="utf-8")
     )
 
 

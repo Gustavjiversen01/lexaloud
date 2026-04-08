@@ -43,9 +43,7 @@ def test_parenthetical_et_al():
 
 
 def test_parenthetical_multiple():
-    out = strip_parenthetical_citations(
-        "As shown (Smith, 2023; Jones, 2020; Brown et al., 2024)."
-    )
+    out = strip_parenthetical_citations("As shown (Smith, 2023; Jones, 2020; Brown et al., 2024).")
     assert "Smith" not in out
     assert "Jones" not in out
     assert "Brown" not in out

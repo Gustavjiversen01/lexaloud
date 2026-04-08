@@ -10,8 +10,9 @@ See `docs/design-rationale.md` for the provider interface design.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -53,8 +54,7 @@ class SpeechProvider(Protocol):
         sentence: str,
         job_id: int,
         is_current_job: Callable[[int], bool],
-    ) -> AudioChunk | None:
-        ...
+    ) -> AudioChunk | None: ...
 
     async def warmup(self) -> None:
         """Run any one-time expensive initialization (CUDA JIT, etc.)."""

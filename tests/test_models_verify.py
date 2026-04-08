@@ -86,6 +86,7 @@ def test_assert_onnxruntime_env_rejects_neither_installed():
 
 def test_assert_onnxruntime_env_detects_corrupted_install():
     """A package is declared but `import onnxruntime` is broken."""
+
     def _only_gpu(name: str) -> bool:
         return name == "onnxruntime-gpu"
 

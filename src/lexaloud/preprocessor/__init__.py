@@ -7,7 +7,7 @@ synthesis-ready sentences.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .abbreviations import expand_latin_abbreviations
 from .citations import strip_numeric_bracket_citations, strip_parenthetical_citations

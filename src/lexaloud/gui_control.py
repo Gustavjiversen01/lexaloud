@@ -44,7 +44,6 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, Gtk  # type: ignore  # noqa: E402
 
-
 # --- curated Kokoro voice list (v1.0 voices pack) -----------------------
 #
 # The full voices pack ships ~50+ voices. We surface a curated subset in
@@ -184,8 +183,7 @@ def _save_config_dict(data: dict) -> None:
                 section_lines.append(f'{key} = "{_toml_escape(value)}"')
             else:
                 log.warning(
-                    "Dropping config key [%s].%s with unsupported type %s "
-                    "during GUI save",
+                    "Dropping config key [%s].%s with unsupported type %s during GUI save",
                     section,
                     key,
                     type(value).__name__,
@@ -364,13 +362,20 @@ def _event_to_binding(event) -> str | None:
 
     # Modifier-only presses: keep waiting for the real key.
     if keyname in (
-        "Control_L", "Control_R",
-        "Shift_L", "Shift_R",
-        "Alt_L", "Alt_R",
-        "Super_L", "Super_R",
-        "Meta_L", "Meta_R",
-        "Hyper_L", "Hyper_R",
-        "ISO_Level3_Shift", "ISO_Level5_Shift",
+        "Control_L",
+        "Control_R",
+        "Shift_L",
+        "Shift_R",
+        "Alt_L",
+        "Alt_R",
+        "Super_L",
+        "Super_R",
+        "Meta_L",
+        "Meta_R",
+        "Hyper_L",
+        "Hyper_R",
+        "ISO_Level3_Shift",
+        "ISO_Level5_Shift",
     ):
         return None
 
@@ -471,9 +476,7 @@ class ControlWindow(Gtk.Window):
         self.hotkey_labels: dict[str, Gtk.Label] = {}
         for row, (path_suffix, label, _cmd) in enumerate(SHORTCUTS):
             name_lbl = Gtk.Label(label=f"{label}:", xalign=0)
-            current_lbl = Gtk.Label(
-                label=get_shortcut_binding(path_suffix), xalign=0
-            )
+            current_lbl = Gtk.Label(label=get_shortcut_binding(path_suffix), xalign=0)
             self.hotkey_labels[path_suffix] = current_lbl
             change_btn = Gtk.Button(label="Change…")
             change_btn.connect("clicked", self._on_change_binding, path_suffix)
@@ -608,9 +611,7 @@ class ControlWindow(Gtk.Window):
                     "it will use the new settings on the next start."
                 )
         except Exception as e:  # noqa: BLE001
-            self.status_label.set_text(
-                f"Saved {summary}; couldn't restart daemon: {e}"
-            )
+            self.status_label.set_text(f"Saved {summary}; couldn't restart daemon: {e}")
 
     def _on_change_binding(self, _btn, path_suffix: str) -> None:
         dialog = _CaptureDialog(self, path_suffix)
@@ -628,8 +629,8 @@ class ControlWindow(Gtk.Window):
         if response == Gtk.ResponseType.OK and captured:
             if not write_ok:
                 self.status_label.set_text(
-                    f"Failed to write hotkey binding to gsettings. "
-                    f"Check `journalctl --user` for details."
+                    "Failed to write hotkey binding to gsettings. "
+                    "Check `journalctl --user` for details."
                 )
                 return
             actual = _gsettings_get(KB_SCHEMA, "binding", f"{KB_BASE}/{path_suffix}/")
@@ -658,8 +659,7 @@ class _CaptureDialog(Gtk.Dialog):
         box.set_border_width(16)
         box.set_spacing(8)
         msg = Gtk.Label(
-            label="Press the new key combination.\n"
-            "(Esc to cancel, or just press Cancel.)"
+            label="Press the new key combination.\n(Esc to cancel, or just press Cancel.)"
         )
         box.pack_start(msg, True, True, 0)
 

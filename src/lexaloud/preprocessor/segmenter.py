@@ -13,7 +13,6 @@ from __future__ import annotations
 import threading
 from functools import lru_cache
 
-
 _SEGMENT_LOCK = threading.Lock()
 
 

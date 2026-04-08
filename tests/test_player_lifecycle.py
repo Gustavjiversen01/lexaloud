@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 
-
 from lexaloud.audio import NullSink
 from lexaloud.player import Player
 from lexaloud.providers.fake import FakeProvider
@@ -51,7 +50,6 @@ async def test_speak_replace_cancels_previous_job():
     await player.speak(_sentences(10))
     # Let a couple sentences happen.
     await asyncio.sleep(0.05)
-    first_job_id = player.state  # just to snapshot
     prev_write = sink.write_count
 
     # Replace with a short new job.

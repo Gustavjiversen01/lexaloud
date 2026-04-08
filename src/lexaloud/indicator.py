@@ -62,8 +62,8 @@ except ValueError as e:
     )
     raise SystemExit(2) from e
 
-from gi.repository import GLib, Gtk  # type: ignore  # noqa: E402
 from gi.repository import AyatanaAppIndicator3 as AppIndicator3  # type: ignore  # noqa: E402
+from gi.repository import GLib, Gtk  # type: ignore  # noqa: E402
 
 # --- paths ----------------------------------------------------------------
 

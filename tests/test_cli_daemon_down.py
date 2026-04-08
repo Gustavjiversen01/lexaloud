@@ -29,9 +29,8 @@ def test_get_from_daemon_connect_timeout_exits_3():
     with patch("httpx.Client") as mock_client:
         instance = mock_client.return_value.__enter__.return_value
         instance.get.side_effect = httpx.ConnectTimeout("timeout")
-        with patch("lexaloud.cli.try_notify"):
-            with pytest.raises(SystemExit) as ei:
-                cli._get_from_daemon("/state")
+        with patch("lexaloud.cli.try_notify"), pytest.raises(SystemExit) as ei:
+            cli._get_from_daemon("/state")
     assert ei.value.code == cli.EXIT_DAEMON_DOWN
 
 
@@ -40,9 +39,8 @@ def test_post_413_exits_oversized():
     with patch("httpx.Client") as mock_client:
         instance = mock_client.return_value.__enter__.return_value
         instance.post.return_value = mock_response
-        with patch("lexaloud.cli.try_notify"):
-            with pytest.raises(SystemExit) as ei:
-                cli._post_to_daemon("/speak", {"text": "x" * 10})
+        with patch("lexaloud.cli.try_notify"), pytest.raises(SystemExit) as ei:
+            cli._post_to_daemon("/speak", {"text": "x" * 10})
     assert ei.value.code == cli.EXIT_OVERSIZED
 
 

@@ -11,7 +11,6 @@ from lexaloud.bug_report import (
     collect_bug_report,
 )
 
-
 # ---------- redaction ----------
 
 

@@ -24,14 +24,12 @@ paste into the public bug report.
 from __future__ import annotations
 
 import json
-import os
 import platform as py_platform
 import re
 import subprocess
 import sys
 from io import StringIO
 from pathlib import Path
-
 
 _REDACT_KEY_RE = re.compile(r"(?i)(key|token|secret|pass)")
 
@@ -113,7 +111,9 @@ def _get_model_cache_info() -> list[str]:
         p = cache / art.filename
         if p.is_file():
             size = p.stat().st_size
-            lines.append(f"- `{art.filename}`: present ({size} bytes, expected ~{art.expected_size})")
+            lines.append(
+                f"- `{art.filename}`: present ({size} bytes, expected ~{art.expected_size})"
+            )
         else:
             lines.append(f"- `{art.filename}`: **MISSING**")
     return lines
@@ -217,9 +217,7 @@ def collect_bug_report(redact: bool = True) -> str:
     w("")
     w("## Systemd unit state")
     w("")
-    systemctl_status = _run(
-        ["systemctl", "--user", "is-active", "lexaloud.service"]
-    )
+    systemctl_status = _run(["systemctl", "--user", "is-active", "lexaloud.service"])
     w(f"- `systemctl --user is-active lexaloud.service`: `{systemctl_status or 'unknown'}`")
     w("")
     w("## Journal (last 200 lines)")

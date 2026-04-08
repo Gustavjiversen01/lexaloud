@@ -40,8 +40,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 
@@ -57,6 +58,7 @@ def _sentence_token(sentence: str) -> str:
     """
     digest = hashlib.sha1(sentence.encode("utf-8")).hexdigest()[:8]
     return f"{digest} ({len(sentence)}ch)"
+
 
 log = logging.getLogger(__name__)
 
@@ -106,9 +108,7 @@ class KokoroProvider:
             raise
         preload = getattr(ort, "preload_dlls", None)
         if preload is None:
-            log.info(
-                "ort.preload_dlls is unavailable in this onnxruntime build; skipping"
-            )
+            log.info("ort.preload_dlls is unavailable in this onnxruntime build; skipping")
             return
         try:
             preload(cuda=True, cudnn=True, msvc=False)
@@ -154,9 +154,7 @@ class KokoroProvider:
                     log.info("Kokoro session providers: %s", providers)
                 return session, providers
             except Exception as e:  # noqa: BLE001
-                log.warning(
-                    "CUDA session construction failed, falling back to CPU: %s", e
-                )
+                log.warning("CUDA session construction failed, falling back to CPU: %s", e)
 
         # CPU fallback
         session = ort.InferenceSession(

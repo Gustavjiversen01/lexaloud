@@ -18,22 +18,14 @@ def test_does_not_dehyphenate_hyphenated_compounds():
 
 
 def test_unwraps_lines_within_paragraph():
-    text = (
-        "Reading-while-listening is a technique\n"
-        "with a contested empirical basis.\n"
-    )
+    text = "Reading-while-listening is a technique\nwith a contested empirical basis.\n"
     out = clean_pdf_paste(text)
     assert "Reading-while-listening is a technique with a contested" in out
     assert "\n" not in out.split("\n\n")[0]  # paragraph is one line
 
 
 def test_preserves_paragraph_breaks():
-    text = (
-        "First paragraph.\n"
-        "Same paragraph continued.\n"
-        "\n"
-        "Second paragraph starts here.\n"
-    )
+    text = "First paragraph.\nSame paragraph continued.\n\nSecond paragraph starts here.\n"
     out = clean_pdf_paste(text)
     paragraphs = out.split("\n\n")
     assert len(paragraphs) == 2

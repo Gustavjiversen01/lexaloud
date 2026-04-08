@@ -32,9 +32,7 @@ def detect_session() -> SessionInfo:
         session_type = "unknown"
 
     desktop = (
-        os.environ.get("XDG_CURRENT_DESKTOP")
-        or os.environ.get("DESKTOP_SESSION")
-        or "unknown"
+        os.environ.get("XDG_CURRENT_DESKTOP") or os.environ.get("DESKTOP_SESSION") or "unknown"
     )
 
     return SessionInfo(

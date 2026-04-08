@@ -16,7 +16,6 @@ from lexaloud.selection import (
     read_primary,
 )
 
-
 # ---------- UTF-8 safe truncation ----------
 
 
@@ -75,16 +74,19 @@ def _patch_env(session: _FakeSession, run_stdout: bytes, run_raises=None):
         ),
         patch(
             "lexaloud.selection.subprocess.run",
-            side_effect=(run_raises if run_raises else None) or (lambda *a, **kw: _completed(run_stdout)),
+            side_effect=(run_raises if run_raises else None)
+            or (lambda *a, **kw: _completed(run_stdout)),
         ),
     )
 
 
 def test_read_primary_wayland_returns_text():
     session = _FakeSession(is_wayland=True, has_wl=True, has_xclip=True)
-    with patch("lexaloud.selection.detect_session", return_value=session), \
-         patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"), \
-         patch("lexaloud.selection.subprocess.run", return_value=_completed(b"hello world")):
+    with (
+        patch("lexaloud.selection.detect_session", return_value=session),
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"),
+        patch("lexaloud.selection.subprocess.run", return_value=_completed(b"hello world")),
+    ):
         r = read_primary(max_bytes=1024, timeout_s=1.0)
     assert r.text == "hello world"
     assert r.source == "primary"
@@ -93,18 +95,22 @@ def test_read_primary_wayland_returns_text():
 
 def test_read_primary_empty_raises():
     session = _FakeSession(is_wayland=True, has_wl=True, has_xclip=True)
-    with patch("lexaloud.selection.detect_session", return_value=session), \
-         patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"), \
-         patch("lexaloud.selection.subprocess.run", return_value=_completed(b"")):
+    with (
+        patch("lexaloud.selection.detect_session", return_value=session),
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"),
+        patch("lexaloud.selection.subprocess.run", return_value=_completed(b"")),
+    ):
         with pytest.raises(SelectionEmpty):
             read_primary(max_bytes=1024, timeout_s=1.0)
 
 
 def test_read_primary_whitespace_only_raises():
     session = _FakeSession(is_wayland=True, has_wl=True, has_xclip=True)
-    with patch("lexaloud.selection.detect_session", return_value=session), \
-         patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"), \
-         patch("lexaloud.selection.subprocess.run", return_value=_completed(b"   \n  ")):
+    with (
+        patch("lexaloud.selection.detect_session", return_value=session),
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"),
+        patch("lexaloud.selection.subprocess.run", return_value=_completed(b"   \n  ")),
+    ):
         with pytest.raises(SelectionEmpty):
             read_primary(max_bytes=1024, timeout_s=1.0)
 
@@ -112,9 +118,11 @@ def test_read_primary_whitespace_only_raises():
 def test_read_primary_truncates_large_selection():
     big_text = ("hello " * 1000).encode("utf-8")
     session = _FakeSession(is_wayland=True, has_wl=True, has_xclip=True)
-    with patch("lexaloud.selection.detect_session", return_value=session), \
-         patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"), \
-         patch("lexaloud.selection.subprocess.run", return_value=_completed(big_text)):
+    with (
+        patch("lexaloud.selection.detect_session", return_value=session),
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"),
+        patch("lexaloud.selection.subprocess.run", return_value=_completed(big_text)),
+    ):
         r = read_primary(max_bytes=100, timeout_s=1.0)
     assert r.truncated
     assert len(r.text.encode("utf-8")) <= 100
@@ -123,8 +131,10 @@ def test_read_primary_truncates_large_selection():
 
 def test_read_primary_tool_missing_raises():
     session = _FakeSession(is_wayland=True, has_wl=False, has_xclip=False)
-    with patch("lexaloud.selection.detect_session", return_value=session), \
-         patch("lexaloud.selection.shutil.which", return_value=None):
+    with (
+        patch("lexaloud.selection.detect_session", return_value=session),
+        patch("lexaloud.selection.shutil.which", return_value=None),
+    ):
         with pytest.raises(SelectionToolMissing):
             read_primary(max_bytes=1024, timeout_s=1.0)
 
@@ -135,18 +145,24 @@ def test_read_primary_timeout_raises():
     def _raise(*args, **kwargs):
         raise subprocess.TimeoutExpired(cmd=args[0], timeout=1.0)
 
-    with patch("lexaloud.selection.detect_session", return_value=session), \
-         patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"), \
-         patch("lexaloud.selection.subprocess.run", side_effect=_raise):
+    with (
+        patch("lexaloud.selection.detect_session", return_value=session),
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"),
+        patch("lexaloud.selection.subprocess.run", side_effect=_raise),
+    ):
         with pytest.raises(SelectionTimeout):
             read_primary(max_bytes=1024, timeout_s=1.0)
 
 
 def test_read_clipboard_x11_uses_xclip():
     session = _FakeSession(is_wayland=False, has_wl=False, has_xclip=True)
-    with patch("lexaloud.selection.detect_session", return_value=session), \
-         patch("lexaloud.selection.shutil.which", return_value="/usr/bin/xclip"), \
-         patch("lexaloud.selection.subprocess.run", return_value=_completed(b"clipped text")) as mock_run:
+    with (
+        patch("lexaloud.selection.detect_session", return_value=session),
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/xclip"),
+        patch(
+            "lexaloud.selection.subprocess.run", return_value=_completed(b"clipped text")
+        ) as mock_run,
+    ):
         r = read_clipboard(max_bytes=1024, timeout_s=1.0)
     assert r.text == "clipped text"
     assert r.source == "clipboard"
@@ -160,8 +176,10 @@ def test_primary_and_clipboard_do_not_fall_back_to_each_other():
     """Critical test: empty primary must NOT return clipboard contents."""
     session = _FakeSession(is_wayland=True, has_wl=True, has_xclip=True)
     # Primary is empty, clipboard has content. read_primary must still raise.
-    with patch("lexaloud.selection.detect_session", return_value=session), \
-         patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"), \
-         patch("lexaloud.selection.subprocess.run", return_value=_completed(b"")):
+    with (
+        patch("lexaloud.selection.detect_session", return_value=session),
+        patch("lexaloud.selection.shutil.which", return_value="/usr/bin/wl-paste"),
+        patch("lexaloud.selection.subprocess.run", return_value=_completed(b"")),
+    ):
         with pytest.raises(SelectionEmpty):
             read_primary(max_bytes=1024, timeout_s=1.0)

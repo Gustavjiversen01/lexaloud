@@ -59,9 +59,7 @@ async def _client_for(app):
     """
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport, base_url="http://test"
-        ) as client:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             yield client
 
 
@@ -158,9 +156,7 @@ async def test_speak_then_pause_resume(tmp_path: Path):
     """
     cfg = Config()
     # Slow enough that 5 sentences take ~250 ms total.
-    provider = FakeProvider(
-        sample_rate=24000, seconds_per_sentence=0.05, synth_delay_ms=20
-    )
+    provider = FakeProvider(sample_rate=24000, seconds_per_sentence=0.05, synth_delay_ms=20)
     sink = WavSink(tmp_path)
     player = Player(provider=provider, sink=sink, ready_queue_depth=2)
     preproc_config = PreprocessorConfig()
@@ -229,9 +225,7 @@ async def test_toggle_pauses_then_resumes(tmp_path: Path):
     """Starting from speaking, one /toggle should pause, a second should resume."""
     cfg = Config()
     # Slow enough sentences that the job is still in flight when we toggle.
-    provider = FakeProvider(
-        sample_rate=24000, seconds_per_sentence=0.05, synth_delay_ms=20
-    )
+    provider = FakeProvider(sample_rate=24000, seconds_per_sentence=0.05, synth_delay_ms=20)
     sink = WavSink(tmp_path)
     player = Player(provider=provider, sink=sink, ready_queue_depth=2)
     preproc_config = PreprocessorConfig()
@@ -240,9 +234,7 @@ async def test_toggle_pauses_then_resumes(tmp_path: Path):
     )
     app = create_app(comps)
     async with _client_for(app) as client:
-        await client.post(
-            "/speak", json={"text": "one. two. three. four. five."}
-        )
+        await client.post("/speak", json={"text": "one. two. three. four. five."})
         # Give the consumer a moment to begin playing.
         await asyncio.sleep(0.02)
         # First toggle: pause (or briefly already idle if very fast).
