@@ -34,6 +34,8 @@ dev = [
 
 [project.scripts]
 readaloud = "readaloud.cli:main"
+readaloud-indicator = "readaloud.indicator:main"
+readaloud-control = "readaloud.gui_control:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
