@@ -29,18 +29,27 @@ log = logging.getLogger(__name__)
 try:
     import gi  # type: ignore
 except ImportError:
-    sys.path.append("/usr/lib/python3/dist-packages")
-    try:
-        import gi  # type: ignore
-    except ImportError as e:
+    from .platform import system_site_packages_candidates
+
+    for _candidate in system_site_packages_candidates():
+        sys.path.append(str(_candidate))
+        try:
+            import gi  # type: ignore  # noqa: F811
+
+            break
+        except ImportError:
+            continue
+    else:
         print(
-            "Lexaloud indicator: cannot import the 'gi' Python bindings. "
-            "Install them with `sudo apt install python3-gi "
-            "gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1` and ensure "
-            "the 'ubuntu-appindicators' GNOME extension is enabled.",
+            "Lexaloud indicator: cannot import the 'gi' Python bindings.\n"
+            "Install them with one of:\n"
+            "  sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1  # Debian/Ubuntu\n"
+            "  sudo dnf install python3-gobject gtk3 libappindicator-gtk3               # Fedora\n"
+            "  sudo pacman -S python-gobject gtk3 libayatana-appindicator               # Arch\n"
+            "and ensure the 'ubuntu-appindicators' GNOME extension is enabled.",
             file=sys.stderr,
         )
-        raise SystemExit(2) from e
+        raise SystemExit(2)
 
 try:
     gi.require_version("Gtk", "3.0")

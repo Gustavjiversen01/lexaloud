@@ -27,8 +27,18 @@ log = logging.getLogger(__name__)
 try:
     import gi  # type: ignore
 except ImportError:
-    sys.path.append("/usr/lib/python3/dist-packages")
-    import gi  # type: ignore
+    from .platform import system_site_packages_candidates
+
+    for _candidate in system_site_packages_candidates():
+        sys.path.append(str(_candidate))
+        try:
+            import gi  # type: ignore  # noqa: F811
+
+            break
+        except ImportError:
+            continue
+    else:
+        raise  # re-raise the original ImportError if no candidate worked
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
