@@ -61,6 +61,30 @@ def test_resolve_binary_falls_back_to_sys_executable(tmp_path: Path, monkeypatch
     assert result == fake_readaloud
 
 
+def test_resolve_binary_does_not_follow_venv_python_symlink(
+    tmp_path: Path, monkeypatch
+):
+    """Regression: in a venv, sys.executable is a symlink to the system python
+    (e.g. /usr/bin/python3). _resolve_binary must NOT .resolve() it, otherwise
+    it looks for /usr/bin/readaloud instead of the venv's bin dir.
+    """
+    venv_bin = tmp_path / "venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    system_bin = tmp_path / "system"
+    system_bin.mkdir()
+    system_python = system_bin / "python3"
+    system_python.write_text("")
+    venv_python = venv_bin / "python"
+    venv_python.symlink_to(system_python)
+    venv_readaloud = venv_bin / "readaloud"
+    venv_readaloud.write_text("")
+
+    monkeypatch.setattr(sys, "executable", str(venv_python))
+    with patch("readaloud.setup.shutil.which", return_value=None):
+        result = _resolve_binary()
+    assert result == venv_readaloud
+
+
 def test_resolve_binary_raises_when_missing(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "executable", str(tmp_path / "nonexistent" / "python"))
     with patch("readaloud.setup.shutil.which", return_value=None):

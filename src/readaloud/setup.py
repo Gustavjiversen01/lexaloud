@@ -77,8 +77,11 @@ def _resolve_binary() -> Path:
     which = shutil.which("readaloud")
     if which:
         return Path(which).resolve()
-    # Fallback: assume we're running inside the target venv.
-    exe_dir = Path(sys.executable).resolve().parent
+    # Fallback: assume we're running inside the target venv. Do NOT call
+    # `.resolve()` on sys.executable — in a venv, that symlink points back
+    # to the system python (e.g., /usr/bin/python3) and we'd end up looking
+    # for /usr/bin/readaloud instead of the venv's bin dir.
+    exe_dir = Path(sys.executable).parent
     candidate = exe_dir / "readaloud"
     if candidate.exists():
         return candidate
