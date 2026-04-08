@@ -52,6 +52,8 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Literal
 
+import numpy as np
+
 from .audio import AudioSink
 from .providers.base import AudioChunk, SpeechProvider
 
@@ -72,6 +74,21 @@ class PlayerState:
 
 
 class Player:
+    # When writing a sentence to the sink, break it into sub-blocks of
+    # approximately this many seconds. The consumer checks the pause event
+    # between blocks, so pause takes effect within ~SUB_CHUNK_SECONDS of
+    # the press plus the audio device's own buffer tail-out (~100-150ms).
+    # Without sub-chunking, pause would only take effect at sentence
+    # boundaries, which can be 5-10 seconds for dense academic prose.
+    SUB_CHUNK_SECONDS: float = 0.1
+
+    # Silence inserted between sentences. Kokoro.create(trim=True) strips
+    # natural trailing silence, which makes concatenated sentences sound
+    # rushed for dense academic prose. Inserting ~180ms of zeros restores
+    # a natural pause and also eliminates any amplitude-discontinuity
+    # click at the sentence boundary.
+    INTER_SENTENCE_PAD_SECONDS: float = 0.18
+
     def __init__(
         self,
         provider: SpeechProvider,
@@ -204,8 +221,11 @@ class Player:
 
     async def _consumer(self, job_id: int) -> None:
         log.debug("consumer job=%d starting", job_id)
+        stream_open = False
+        stream_sr: int | None = None
+        stream_ch: int | None = None
+        sentences_written = 0
         try:
-            stream_open = False
             while True:
                 if not self._is_current_job(job_id):
                     return
@@ -225,22 +245,73 @@ class Player:
                     return
                 if not self._is_current_job(job_id):
                     return
-                if not stream_open:
-                    channels = (
-                        1
-                        if chunk.samples.ndim == 1
-                        else int(chunk.samples.shape[1])
-                    )
+
+                # (Re)configure the sink if the sample rate or channel
+                # count changed since the last chunk. Today Kokoro is
+                # always 24 kHz mono; this guard catches any future
+                # provider or voice that emits a different shape so we
+                # don't silently feed mismatched samples into a stream
+                # configured for the wrong rate.
+                channels = (
+                    1
+                    if chunk.samples.ndim == 1
+                    else int(chunk.samples.shape[1])
+                )
+                if (
+                    not stream_open
+                    or chunk.sample_rate != stream_sr
+                    or channels != stream_ch
+                ):
+                    if stream_open:
+                        try:
+                            await self._sink.end_stream()
+                        except Exception as e:  # noqa: BLE001
+                            log.warning(
+                                "sink.end_stream failed during reopen: %s", e
+                            )
                     await self._sink.begin_stream(chunk.sample_rate, channels)
+                    stream_sr = chunk.sample_rate
+                    stream_ch = channels
                     stream_open = True
+
+                # Insert an inter-sentence silence pad (except before
+                # the first sentence of the stream). This restores the
+                # natural pause that Kokoro's trim=True default strips.
+                if sentences_written > 0:
+                    try:
+                        await self._write_silence_pad(
+                            stream_sr, stream_ch, job_id
+                        )
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:  # noqa: BLE001
+                        log.warning("silence pad write failed: %s", e)
+
                 self._current_sentence = chunk.metadata.get("sentence")
                 try:
-                    await self._sink.write(chunk)
+                    await self._write_in_blocks(chunk, job_id)
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:  # noqa: BLE001
-                    log.error("sink.write failed: %s", e)
+                    log.error(
+                        "sink.write failed mid-sentence; normalizing to idle: %s",
+                        e,
+                    )
+                    # Normalize state so /state doesn't lie, /pause doesn't
+                    # strand an event, and the next /speak recovers cleanly.
+                    self._current_job_id += 1
+                    self._state = "idle"
+                    self._current_sentence = None
+                    try:
+                        await self._sink.stop()
+                    except Exception as e2:  # noqa: BLE001
+                        log.warning(
+                            "sink.stop failed during error recovery: %s", e2
+                        )
                     return
+                if not self._is_current_job(job_id):
+                    return
+                sentences_written += 1
                 self._last_finished_sentence = self._current_sentence
                 # The sentence just finished playing — remove it from the
                 # in-flight deque (it will be the oldest entry).
@@ -253,6 +324,77 @@ class Player:
             raise
         except Exception as e:  # noqa: BLE001
             log.exception("consumer job=%d failed: %s", job_id, e)
+            # Normalize state on any other consumer-level exception so the
+            # daemon isn't stuck reporting "speaking" forever.
+            if self._is_current_job(job_id):
+                self._current_job_id += 1
+                self._state = "idle"
+                self._current_sentence = None
+
+    async def _write_silence_pad(
+        self, sample_rate: int, channels: int, job_id: int
+    ) -> None:
+        """Write a short silence chunk between sentences.
+
+        Short enough (~180ms) that pause-event checking inside it is
+        unnecessary; we only guard the job_id so a stop/skip/back can
+        still interrupt the sequence cleanly.
+        """
+        pad_samples = int(self.INTER_SENTENCE_PAD_SECONDS * sample_rate)
+        if pad_samples <= 0:
+            return
+        if not self._is_current_job(job_id):
+            return
+        shape: tuple[int, ...]
+        if channels == 1:
+            shape = (pad_samples,)
+        else:
+            shape = (pad_samples, channels)
+        silence = np.zeros(shape, dtype=np.float32)
+        pad_chunk = AudioChunk(
+            samples=silence,
+            sample_rate=sample_rate,
+            metadata={"is_silence_pad": True},
+        )
+        await self._sink.write(pad_chunk)
+
+    async def _write_in_blocks(self, chunk: AudioChunk, job_id: int) -> None:
+        """Write an AudioChunk to the sink in SUB_CHUNK_SECONDS-long blocks.
+
+        Between blocks we check:
+          1. `_is_current_job(job_id)` so stop/skip/back-initiated job bumps
+             take effect mid-sentence.
+          2. `_pause.is_set()` so pause takes effect mid-sentence.
+
+        Short chunks (smaller than one block) still go through the same
+        loop with a single iteration — no special-case code path.
+
+        Numpy slicing produces views, not copies, so the per-block
+        overhead is a small AudioChunk dataclass allocation, not a
+        memory copy of the audio.
+        """
+        block_samples = max(1, int(self.SUB_CHUNK_SECONDS * chunk.sample_rate))
+        total = chunk.num_samples
+        if total == 0:
+            return
+
+        offset = 0
+        while offset < total:
+            if not self._is_current_job(job_id):
+                return
+            if not self._pause.is_set():
+                await self._pause.wait()
+                if not self._is_current_job(job_id):
+                    return
+            end = min(offset + block_samples, total)
+            sub_samples = chunk.samples[offset:end]
+            sub_chunk = AudioChunk(
+                samples=sub_samples,
+                sample_rate=chunk.sample_rate,
+                metadata=chunk.metadata,
+            )
+            await self._sink.write(sub_chunk)
+            offset = end
 
     async def _start_tasks(self, job_id: int) -> None:
         # Ensure no stale tasks; caller is responsible for cancelling any

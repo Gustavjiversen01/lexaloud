@@ -186,7 +186,7 @@ async def test_append_after_producer_done_starts_fresh_job():
         if player.state.state == "idle":
             break
         await asyncio.sleep(0.005)
-    before_appends = sink.write_count
+    before_samples = sink.samples_received
 
     # Now append — state is idle, producer is done. Should start fresh.
     await player.speak(_sentences(2), mode="append")
@@ -195,7 +195,11 @@ async def test_append_after_producer_done_starts_fresh_job():
             break
         await asyncio.sleep(0.005)
     assert player.state.state == "idle"
-    assert sink.write_count == before_appends + 2, (
+    # Job 2 contributes 2 sentence_samples + 1 inter-sentence pad.
+    sentence_samples = int(provider.seconds_per_sentence * provider.sample_rate)
+    pad_samples = int(Player.INTER_SENTENCE_PAD_SECONDS * provider.sample_rate)
+    expected_added = 2 * sentence_samples + 1 * pad_samples
+    assert sink.samples_received == before_samples + expected_added, (
         "append-after-idle should have started a fresh job"
     )
 

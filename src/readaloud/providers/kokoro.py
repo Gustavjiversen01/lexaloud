@@ -289,4 +289,21 @@ class KokoroProvider:
             )
             return None
 
+        # Filter out degenerate very-short outputs. Kokoro can produce
+        # ~5-10 ms of residual noise for sentences that phonemize to
+        # almost nothing (e.g., a stripped citation "[3]" or a stray
+        # "Fig.") — audible as a pop and useless as speech. The
+        # preprocessor should ideally catch these first, but this is a
+        # second line of defense in the provider.
+        min_samples = max(1, int(0.05 * sr))
+        if samples.shape[0] < min_samples:
+            log.warning(
+                "Kokoro returned a very short (%d-sample, %.1fms) output for %r; "
+                "dropping the chunk to avoid audio artifacts",
+                samples.shape[0],
+                samples.shape[0] * 1000.0 / sr,
+                sentence[:60],
+            )
+            return None
+
         return AudioChunk(samples=samples, sample_rate=sr, metadata={"voice": self.voice})

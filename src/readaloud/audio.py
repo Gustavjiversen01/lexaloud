@@ -149,12 +149,40 @@ class SoundDeviceSink:
         import sounddevice as sd  # local import so the daemon can be imported without audio
 
         log.info("SoundDeviceSink: opening OutputStream sr=%d ch=%d", sample_rate, channels)
+        # latency="low" maps to PortAudio's default_low_output_latency
+        # (~20-50 ms on most devices) instead of "high" (~150+ ms), which
+        # both tightens pause-response latency and reduces the
+        # sample-rate-conversion warm-up that clips first words.
+        # blocksize=1024 locks in a known callback block size instead of
+        # letting PortAudio pick per-device; a fixed block produces
+        # predictable write-blocking behavior and avoids occasional
+        # 4096-frame blocks on PulseAudio.
         stream = sd.OutputStream(
             samplerate=sample_rate,
             channels=channels,
             dtype="float32",
+            latency="low",
+            blocksize=1024,
         )
         stream.start()
+        log.info(
+            "SoundDeviceSink: stream latency=%.1fms blocksize=%d",
+            float(stream.latency) * 1000.0,
+            int(stream.blocksize),
+        )
+        # Prime the stream with enough silence to absorb PortAudio's
+        # reported latency (plus a small margin) so the first few tens
+        # of ms of the first real sentence aren't clipped by
+        # PulseAudio/PipeWire stream setup or the sample-rate-converter
+        # ramp-up. Observed as "the first word is cut off" on cold
+        # streams.
+        try:
+            prime_seconds = max(0.1, float(stream.latency) + 0.05)
+            prime_samples = int(prime_seconds * sample_rate)
+            silence = np.zeros((prime_samples, channels), dtype=np.float32)
+            stream.write(silence)
+        except Exception as e:  # noqa: BLE001
+            log.warning("SoundDeviceSink: silence prime failed (continuing): %s", e)
         self._stream = stream
         self._stream_sample_rate = sample_rate
         self._stream_channels = channels
@@ -162,7 +190,13 @@ class SoundDeviceSink:
     def _close_stream(self) -> None:
         if self._stream is not None:
             try:
-                self._stream.stop()
+                # abort() discards buffered output immediately; stop()
+                # would drain the buffer before returning. For "stop
+                # speaking right now" semantics (both user /stop and
+                # daemon shutdown) abort is the correct choice and also
+                # caps shutdown latency to a few ms instead of tens to
+                # hundreds of ms.
+                self._stream.abort()
                 self._stream.close()
             except Exception as e:
                 log.warning("SoundDeviceSink close failed: %s", e)
@@ -187,18 +221,33 @@ class SoundDeviceSink:
                     raise
 
     async def write(self, chunk: AudioChunk) -> None:
-        samples = chunk.samples
-        if samples.dtype != np.float32:
-            samples = samples.astype(np.float32)
-        if samples.ndim == 1:
-            samples = samples.reshape(-1, 1)
-        # `write` is blocking; drop the GIL via run_in_executor so other
-        # coroutines can make progress. We still hold the sink lock to avoid
-        # interleaving samples from parallel writers.
-        loop = asyncio.get_running_loop()
         async with self._lock:
             if self._stream is None:
                 raise RuntimeError("SoundDeviceSink.write called before begin_stream")
+            # Fail loudly instead of silently feeding mismatched audio
+            # through a differently-configured stream. This is the guard
+            # the audio-pipeline review flagged as the "future Kokoro
+            # sample-rate change" tripwire.
+            if chunk.sample_rate != self._stream_sample_rate:
+                raise ValueError(
+                    f"SoundDeviceSink.write: chunk sample_rate={chunk.sample_rate} "
+                    f"does not match open stream sample_rate={self._stream_sample_rate}"
+                )
+            samples = chunk.samples
+            if samples.dtype != np.float32:
+                samples = samples.astype(np.float32)
+            if samples.ndim == 1:
+                samples = samples.reshape(-1, 1)
+            # Ensure the buffer is C-contiguous before passing it to
+            # PortAudio via sounddevice. Numpy slices of a contiguous
+            # array are contiguous, but reshape of a non-contiguous
+            # source (e.g., a transposed or strided view) is not, and
+            # sounddevice.OutputStream.write would raise on it. This is
+            # a no-op when the input is already contiguous.
+            samples = np.ascontiguousarray(samples, dtype=np.float32)
+            # `write` is blocking; drop the GIL via run_in_executor so
+            # other coroutines can make progress.
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self._stream.write, samples)
 
     async def end_stream(self) -> None:

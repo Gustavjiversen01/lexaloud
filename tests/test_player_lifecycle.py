@@ -32,7 +32,16 @@ async def test_speak_full_play_reaches_idle():
             break
         await asyncio.sleep(0.01)
     assert player.state.state == "idle"
-    assert sink.write_count == 5
+    # Each FakeProvider sentence is 0.2s * 24000 Hz = 4800 samples.
+    # Between sentences the consumer inserts an INTER_SENTENCE_PAD_SECONDS
+    # silence chunk (default 0.18s * 24000 Hz = 4320 samples) to restore
+    # the natural pause that Kokoro's trim=True default strips. Five
+    # sentences means four pads. We care that all the audio reached the
+    # sink, not how many write() calls happened.
+    sentence_samples = int(provider.seconds_per_sentence * provider.sample_rate)
+    pad_samples = int(Player.INTER_SENTENCE_PAD_SECONDS * provider.sample_rate)
+    expected_samples = 5 * sentence_samples + 4 * pad_samples
+    assert sink.samples_received == expected_samples
     assert len(provider.synthesize_calls) == 5
 
 
@@ -140,7 +149,10 @@ async def test_append_mode_extends_pending():
             break
         await asyncio.sleep(0.01)
     assert player.state.state == "idle"
-    assert sink.write_count == 5
+    sentence_samples = int(provider.seconds_per_sentence * provider.sample_rate)
+    pad_samples = int(Player.INTER_SENTENCE_PAD_SECONDS * provider.sample_rate)
+    expected_samples = 5 * sentence_samples + 4 * pad_samples
+    assert sink.samples_received == expected_samples
 
 
 @pytest.mark.asyncio
