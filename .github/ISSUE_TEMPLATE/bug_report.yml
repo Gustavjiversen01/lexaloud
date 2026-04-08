@@ -1,0 +1,98 @@
+name: Bug report
+description: Something in Lexaloud is broken or behaving unexpectedly
+title: "[bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill out
+        the sections below — the `lexaloud bug-report` output contains
+        almost everything we need to diagnose the issue.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: When I press Ctrl+0 while text is selected, ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Firefox with an article
+        2. Highlight two paragraphs
+        3. Press Ctrl+0
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: bug-report-output
+    attributes:
+      label: `lexaloud bug-report` output
+      description: |
+        Run `lexaloud bug-report` in a terminal and paste the full markdown
+        output here. This collects distro/kernel/DE/GPU/Python/daemon state
+        and the last 200 journalctl lines. Sensitive env vars and home
+        paths are redacted by default; pass `--full` only if asked.
+      render: markdown
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Lexaloud version
+      description: Output of `lexaloud --version`
+      placeholder: lexaloud 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: session
+    attributes:
+      label: Session type
+      options:
+        - X11
+        - Wayland
+        - Unknown
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      placeholder: Ubuntu 24.04 / Fedora 41 / Arch rolling
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU
+      placeholder: NVIDIA RTX 5080 / AMD / CPU only
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I'm on the latest v0.1.x
+          required: true
+        - label: I've searched existing issues and nothing matches
+          required: true
+        - label: I've read `docs/troubleshooting.md` and `docs/gotchas.md`
+          required: false

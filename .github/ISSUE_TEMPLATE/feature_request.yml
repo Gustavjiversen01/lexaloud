@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest an improvement or a new feature
+title: "[feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check `ROADMAP.md` before filing — it lists items that are
+        already planned or deliberately out of scope.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: |
+        Describe the use case first. "I would like a floating overlay"
+        is less useful than "When I'm reading dense PDFs I can't keep
+        track of which sentence is being spoken; a floating highlight
+        would help."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Rough sketch — not a full design document.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you've tried, other tools that do this, etc.
+
+  - type: checkboxes
+    id: roadmap-check
+    attributes:
+      label: Roadmap check
+      options:
+        - label: I've read `ROADMAP.md` and this is not already tracked
+          required: true
