@@ -3,8 +3,8 @@
 # Lexaloud installer — Phase A bootstrap.
 #
 # Creates a dedicated venv at ~/.local/share/lexaloud/venv/, installs the
-# pinned dependency set (requirements-lock.txt from Spike 0), then the
-# lexaloud package itself.
+# pinned dependency set (requirements-lock.cuda12.txt or requirements-lock.cpu.txt
+# from Spike 0), then the lexaloud package itself.
 #
 # After this script succeeds:
 #
@@ -12,6 +12,12 @@
 #
 # will finish the configuration (download models, render systemd unit,
 # print hotkey binding walkthrough).
+#
+# Usage:
+#   ./scripts/install.sh                    # auto-detect GPU, pick backend
+#   ./scripts/install.sh --backend cuda12   # force NVIDIA GPU backend
+#   ./scripts/install.sh --backend cpu      # force CPU-only backend
+#   ./scripts/install.sh --backend auto     # equivalent to no flag
 
 set -euo pipefail
 
@@ -19,19 +25,97 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VENV_DEFAULT="$HOME/.local/share/lexaloud/venv"
 VENV="${LEXALOUD_VENV:-$VENV_DEFAULT}"
 
+BACKEND="auto"
+
+# --- parse arguments ----------------------------------------------------
+
+while (( "$#" )); do
+  case "$1" in
+    --backend)
+      BACKEND="$2"
+      shift 2
+      ;;
+    --backend=*)
+      BACKEND="${1#*=}"
+      shift
+      ;;
+    -h|--help)
+      sed -n '4,22p' "$0"
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      echo "Usage: $0 [--backend cpu|cuda12|auto]" >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ "$BACKEND" != "cpu" && "$BACKEND" != "cuda12" && "$BACKEND" != "auto" ]]; then
+  echo "Invalid --backend value: $BACKEND (must be cpu, cuda12, or auto)" >&2
+  exit 2
+fi
+
 echo "=== Lexaloud installer ==="
 echo "repo root: $REPO_ROOT"
 echo "target venv: $VENV"
+echo "backend: $BACKEND"
 echo
 
-# --- system dependency check --------------------------------------------
+# --- distro detection ---------------------------------------------------
+
+DISTRO_ID="unknown"
+DISTRO_LIKE=""
+if [[ -f /etc/os-release ]]; then
+  # shellcheck disable=SC1091
+  DISTRO_ID="$(. /etc/os-release && echo "${ID:-unknown}")"
+  DISTRO_LIKE="$(. /etc/os-release && echo "${ID_LIKE:-}")"
+fi
+echo "distro: $DISTRO_ID (like: ${DISTRO_LIKE:-none})"
+
+# Classify into a package-manager family.
+DISTRO_FAMILY="unknown"
+case "$DISTRO_ID" in
+  ubuntu|debian|linuxmint|pop|elementary|kali|zorin) DISTRO_FAMILY="debian" ;;
+  fedora|rhel|centos|rocky|almalinux) DISTRO_FAMILY="fedora" ;;
+  arch|manjaro|endeavouros|garuda|artix) DISTRO_FAMILY="arch" ;;
+  opensuse*|sles) DISTRO_FAMILY="suse" ;;
+esac
+# Also check ID_LIKE for families that didn't hit the ID switch above.
+if [[ "$DISTRO_FAMILY" == "unknown" && -n "$DISTRO_LIKE" ]]; then
+  case "$DISTRO_LIKE" in
+    *debian*|*ubuntu*) DISTRO_FAMILY="debian" ;;
+    *fedora*|*rhel*)   DISTRO_FAMILY="fedora" ;;
+    *arch*)            DISTRO_FAMILY="arch" ;;
+    *suse*)            DISTRO_FAMILY="suse" ;;
+  esac
+fi
+echo "distro family: $DISTRO_FAMILY"
+echo
+
+# --- Python version check (≥3.11) --------------------------------------
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 is not installed." >&2
+  exit 1
+fi
+PY_VERSION="$(python3 -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
+PY_MAJOR="$(echo "$PY_VERSION" | cut -d. -f1)"
+PY_MINOR="$(echo "$PY_VERSION" | cut -d. -f2)"
+if (( PY_MAJOR < 3 || ( PY_MAJOR == 3 && PY_MINOR < 11 ) )); then
+  cat >&2 <<EOF
+ERROR: Python $PY_VERSION is too old. Lexaloud requires Python >= 3.11.
+       Please install a newer Python via your distro's package manager.
+EOF
+  exit 1
+fi
+echo "python3: $PY_VERSION (ok)"
+echo
+
+# --- system dependency check (distro-aware) -----------------------------
 
 missing=()
 
-if ! command -v python3 >/dev/null 2>&1; then
-  missing+=("python3")
-fi
-# python3-venv is the Debian/Ubuntu package that provides the `venv` module.
 if ! python3 -c 'import venv' 2>/dev/null; then
   missing+=("python3-venv")
 fi
@@ -41,10 +125,7 @@ fi
 if ! command -v xclip >/dev/null 2>&1; then
   missing+=("xclip")
 fi
-# Capture ldconfig -p into a variable instead of piping into grep -q.
-# Under `set -o pipefail`, grep -q exits early on the first match and the
-# upstream ldconfig is killed by SIGPIPE (exit 141), making the pipeline
-# spuriously fail and the check report libportaudio2 as missing.
+# libportaudio2 — probe via ldconfig
 LDCONFIG_OUT="$(ldconfig -p 2>/dev/null || true)"
 if [[ "$LDCONFIG_OUT" != *libportaudio.so.2* ]]; then
   missing+=("libportaudio2")
@@ -54,14 +135,87 @@ if ! command -v notify-send >/dev/null 2>&1; then
   missing+=("libnotify-bin")
 fi
 
-# dedupe
 if (( ${#missing[@]} > 0 )); then
   mapfile -t missing < <(printf "%s\n" "${missing[@]}" | awk '!seen[$0]++')
-  echo "Missing system packages:" >&2
+  echo "Missing system packages (conceptual names):" >&2
   for p in "${missing[@]}"; do echo "  - $p" >&2; done
   echo >&2
-  echo "Install them with:" >&2
-  echo "  sudo apt install ${missing[*]}" >&2
+  case "$DISTRO_FAMILY" in
+    debian)
+      echo "Install them with:" >&2
+      echo "  sudo apt install ${missing[*]}" >&2
+      ;;
+    fedora)
+      # Translate Debian package names to Fedora equivalents
+      fedora_pkgs=()
+      for p in "${missing[@]}"; do
+        case "$p" in
+          python3-venv)   fedora_pkgs+=("python3") ;;
+          wl-clipboard)   fedora_pkgs+=("wl-clipboard") ;;
+          xclip)          fedora_pkgs+=("xclip") ;;
+          libportaudio2)  fedora_pkgs+=("portaudio") ;;
+          libnotify-bin)  fedora_pkgs+=("libnotify") ;;
+          *)              fedora_pkgs+=("$p") ;;
+        esac
+      done
+      echo "Install them with:" >&2
+      echo "  sudo dnf install ${fedora_pkgs[*]}" >&2
+      ;;
+    arch)
+      arch_pkgs=()
+      for p in "${missing[@]}"; do
+        case "$p" in
+          python3-venv)   arch_pkgs+=("python") ;;
+          wl-clipboard)   arch_pkgs+=("wl-clipboard") ;;
+          xclip)          arch_pkgs+=("xclip") ;;
+          libportaudio2)  arch_pkgs+=("portaudio") ;;
+          libnotify-bin)  arch_pkgs+=("libnotify") ;;
+          *)              arch_pkgs+=("$p") ;;
+        esac
+      done
+      echo "Install them with:" >&2
+      echo "  sudo pacman -S ${arch_pkgs[*]}" >&2
+      ;;
+    suse)
+      suse_pkgs=()
+      for p in "${missing[@]}"; do
+        case "$p" in
+          python3-venv)   suse_pkgs+=("python3") ;;
+          wl-clipboard)   suse_pkgs+=("wl-clipboard") ;;
+          xclip)          suse_pkgs+=("xclip") ;;
+          libportaudio2)  suse_pkgs+=("portaudio") ;;
+          libnotify-bin)  suse_pkgs+=("libnotify-tools") ;;
+          *)              suse_pkgs+=("$p") ;;
+        esac
+      done
+      echo "Install them with:" >&2
+      echo "  sudo zypper install ${suse_pkgs[*]}" >&2
+      ;;
+    *)
+      echo "Your distro ($DISTRO_ID) isn't in our package-name table. The conceptual" >&2
+      echo "names above are what you need. File a PR against scripts/install.sh to" >&2
+      echo "add the package-name translation for your distro." >&2
+      ;;
+  esac
+  exit 1
+fi
+
+# --- backend auto-detection --------------------------------------------
+
+if [[ "$BACKEND" == "auto" ]]; then
+  if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
+    BACKEND="cuda12"
+    echo "nvidia-smi detected an NVIDIA GPU → backend=cuda12"
+  else
+    BACKEND="cpu"
+    echo "no NVIDIA GPU found → backend=cpu"
+  fi
+  echo
+fi
+
+LOCK="$REPO_ROOT/requirements-lock.$BACKEND.txt"
+if [[ ! -f "$LOCK" ]]; then
+  echo "ERROR: lockfile not found: $LOCK" >&2
   exit 1
 fi
 
@@ -83,38 +237,55 @@ fi
 
 if [[ -d "$VENV" ]]; then
   echo "venv already exists at $VENV; checking state."
-  # Refuse to install into a venv that already has the broken dual-install
-  # state Spike 0 flagged.
-  if env -u PYTHONPATH "$VENV/bin/pip" show onnxruntime >/dev/null 2>&1 \
-       && env -u PYTHONPATH "$VENV/bin/pip" show onnxruntime-gpu >/dev/null 2>&1; then
-    cat >&2 <<BROKEN
+  if [[ "$BACKEND" == "cuda12" ]]; then
+    # Refuse to install into a venv that already has the broken dual-install
+    # state Spike 0 flagged.
+    if env -u PYTHONPATH "$VENV/bin/pip" show onnxruntime >/dev/null 2>&1 \
+         && env -u PYTHONPATH "$VENV/bin/pip" show onnxruntime-gpu >/dev/null 2>&1; then
+      cat >&2 <<BROKEN
 ERROR: both 'onnxruntime' and 'onnxruntime-gpu' are installed in $VENV.
        This is the broken coexistence state Spike 0 flagged:
        - imports will silently shadow CUDAExecutionProvider to CPU
-       - `pip uninstall onnxruntime` will break BOTH packages.
+       - \`pip uninstall onnxruntime\` will break BOTH packages.
 
 Fix: recreate the venv from scratch.
 
    rm -rf "$VENV"
-   $0
+   $0 --backend cuda12
 BROKEN
-    exit 1
-  fi
-  # Also refuse if only the CPU package is present — the lockfile install
-  # below will bring onnxruntime-gpu in alongside it, producing the broken
-  # state.
-  if env -u PYTHONPATH "$VENV/bin/pip" show onnxruntime >/dev/null 2>&1; then
-    cat >&2 <<STALE_CPU
+      exit 1
+    fi
+    # Also refuse if only the CPU package is present — the lockfile install
+    # below will bring onnxruntime-gpu in alongside it, producing the broken
+    # state.
+    if env -u PYTHONPATH "$VENV/bin/pip" show onnxruntime >/dev/null 2>&1; then
+      cat >&2 <<STALE_CPU
 ERROR: stale 'onnxruntime' (CPU) package detected in $VENV.
-       Installing the lockfile on top would create the broken dual-install
-       state Spike 0 flagged.
+       Installing the cuda12 lockfile on top would create the broken
+       dual-install state Spike 0 flagged.
 
 Fix: recreate the venv from scratch.
 
    rm -rf "$VENV"
-   $0
+   $0 --backend cuda12
 STALE_CPU
-    exit 1
+      exit 1
+    fi
+  else
+    # cpu backend: refuse if onnxruntime-gpu is already installed (the
+    # opposite case)
+    if env -u PYTHONPATH "$VENV/bin/pip" show onnxruntime-gpu >/dev/null 2>&1; then
+      cat >&2 <<STALE_GPU
+ERROR: stale 'onnxruntime-gpu' package detected in $VENV.
+       Installing the cpu lockfile on top would create a mixed install.
+
+Fix: recreate the venv from scratch.
+
+   rm -rf "$VENV"
+   $0 --backend cpu
+STALE_GPU
+      exit 1
+    fi
   fi
 else
   echo "creating venv at $VENV"
@@ -129,18 +300,12 @@ $PIP install --upgrade pip >/dev/null
 
 # --- install the pinned runtime set -------------------------------------
 
-LOCK="$REPO_ROOT/requirements-lock.txt"
-if [[ ! -f "$LOCK" ]]; then
-  echo "requirements-lock.txt not found at $LOCK" >&2
-  exit 1
-fi
-
-echo "installing pinned runtime dependencies from requirements-lock.txt"
+echo "installing pinned runtime dependencies from $(basename "$LOCK")"
 # Install --no-deps kokoro-onnx separately so pip doesn't re-resolve it and
 # pull in the broken [gpu]-extra coexistence state Spike 0 flagged.
 KOKORO_PIN="$(grep -E '^kokoro-onnx==' "$LOCK" || true)"
 if [[ -z "$KOKORO_PIN" ]]; then
-  echo "kokoro-onnx pin missing from requirements-lock.txt" >&2
+  echo "ERROR: kokoro-onnx pin missing from $LOCK" >&2
   exit 1
 fi
 
@@ -159,15 +324,31 @@ $PIP install --no-deps "$KOKORO_PIN"
 echo "installing the lexaloud package (editable)"
 $PIP install --no-deps -e "$REPO_ROOT"
 
-# --- smoke check: onnxruntime-gpu is the single ORT distribution --------
+# --- smoke check: the expected ORT distribution is present --------------
 
-if $PIP show onnxruntime >/dev/null 2>&1; then
-  echo "ERROR: 'onnxruntime' (CPU) was pulled into the venv somehow; aborting." >&2
-  exit 1
+if [[ "$BACKEND" == "cuda12" ]]; then
+  if $PIP show onnxruntime >/dev/null 2>&1; then
+    echo "ERROR: 'onnxruntime' (CPU) was pulled into the venv somehow; aborting." >&2
+    exit 1
+  fi
+  if ! $PIP show onnxruntime-gpu >/dev/null 2>&1; then
+    echo "ERROR: 'onnxruntime-gpu' is missing after install; aborting." >&2
+    exit 1
+  fi
+else
+  if $PIP show onnxruntime-gpu >/dev/null 2>&1; then
+    echo "ERROR: 'onnxruntime-gpu' was pulled into the venv unexpectedly; aborting." >&2
+    exit 1
+  fi
+  if ! $PIP show onnxruntime >/dev/null 2>&1; then
+    echo "ERROR: 'onnxruntime' is missing after install; aborting." >&2
+    exit 1
+  fi
 fi
 
 echo
 echo "=== install complete ==="
+echo "backend: $BACKEND"
 echo
 echo "Next:"
 echo "  $VENV/bin/lexaloud setup"
