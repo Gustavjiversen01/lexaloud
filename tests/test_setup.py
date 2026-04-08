@@ -7,13 +7,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from lexaloud.setup import (
-    SYSTEMD_UNIT_TEMPLATE,
     _hotkey_walkthrough,
     _render_unit,
     _resolve_binary,
     _systemd_quote,
     _systemd_user_dir,
-    run_setup,
 )
 
 

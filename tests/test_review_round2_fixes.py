@@ -20,11 +20,9 @@ import pytest
 from lexaloud.audio import NullSink
 from lexaloud.config import Config, load_config
 from lexaloud.player import Player
-from lexaloud.providers.base import AudioChunk
 from lexaloud.providers.fake import FakeProvider
 from lexaloud.selection import (
     SelectionDisplayUnavailable,
-    SelectionEmpty,
     _run_capture,
 )
 
@@ -196,7 +194,7 @@ def test_load_config_recovers_from_read_error(tmp_path: Path, monkeypatch):
 
 
 def test_toml_escape_handles_control_chars():
-    from lexaloud.gui_control import _toml_escape, _save_config_dict, _load_config_dict
+    from lexaloud.gui_control import _toml_escape
 
     escaped = _toml_escape("line1\nline2\twith tab\tand \"quotes\"")
     # Every control char and quote is escaped.

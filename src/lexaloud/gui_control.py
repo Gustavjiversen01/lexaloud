@@ -14,7 +14,6 @@ without a daemon restart.
 from __future__ import annotations
 
 import logging
-import os
 import subprocess
 import sys
 import tomllib

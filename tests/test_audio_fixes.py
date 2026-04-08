@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import math
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -22,7 +21,6 @@ import pytest
 from lexaloud.audio import NullSink, SoundDeviceSink
 from lexaloud.player import Player
 from lexaloud.providers.base import AudioChunk
-from lexaloud.providers.fake import FakeProvider
 
 
 # ---------------------------------------------------------------------

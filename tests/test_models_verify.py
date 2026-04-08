@@ -12,7 +12,6 @@ from lexaloud.models import (
     ARTIFACTS,
     ArtifactError,
     OnnxruntimeEnvironmentError,
-    _is_installed,
     assert_onnxruntime_environment,
     default_cache_dir,
     ensure_artifacts,
