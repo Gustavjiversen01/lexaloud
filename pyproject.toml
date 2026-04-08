@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "lexaloud"
 version = "0.0.1"
-description = "Universal Linux text-to-speech tool for academic reading-along"
+description = "A local, private Linux text-to-speech tool. Select text in any app, press a hotkey, hear it read by Kokoro-82M on your GPU."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -13,10 +13,40 @@ license-files = ["LICENSE"]
 authors = [
     {name = "Gustav Jes Iversen"},
 ]
-# NOTE: the authoritative dependency set is requirements-lock.txt, committed
-# after Spike 0 resolves the ONNX Runtime packaging question. pyproject.toml
-# declares only the loose dependency shapes so `pip install -e .` works in
-# a dev loop; shipped installs use the lockfile via scripts/install.sh.
+keywords = [
+    "tts",
+    "text-to-speech",
+    "speech-synthesis",
+    "kokoro",
+    "linux",
+    "gnome",
+    "accessibility",
+    "privacy",
+    "local-ai",
+    "systemd",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: X11 Applications :: GTK",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Adaptive Technologies",
+    "Topic :: Desktop Environment :: Gnome",
+]
+# NOTE: the authoritative dependency set is requirements-lock.cuda12.txt /
+# requirements-lock.cpu.txt. pyproject.toml declares only the loose
+# dependency shapes so `pip install -e .` works in a dev loop; shipped
+# installs use the lockfile via scripts/install.sh. kokoro-onnx is
+# DELIBERATELY not listed — its install shape is load-bearing and must
+# be resolved by scripts/install.sh, not by `pip install lexaloud[tts]`.
 dependencies = [
     "fastapi>=0.115",
     "uvicorn>=0.30",
@@ -25,8 +55,6 @@ dependencies = [
     "pysbd>=0.3",
     "httpx>=0.27",
     "pydantic>=2",
-    # kokoro-onnx install shape is chosen by Spike 0; leave it out here
-    # until the spike pins the exact shape. Spike 0 uses a separate venv.
 ]
 
 [project.optional-dependencies]
@@ -35,7 +63,22 @@ dev = [
     "pytest-asyncio>=0.23",
     "mypy>=1.11",
     "ruff>=0.6",
+    "pip-audit>=2.7",
+    "pre-commit>=3",
+    "build>=1",
+    "pip-licenses>=5",
+    "pip-tools>=7",
 ]
+test = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+]
+
+[project.urls]
+Homepage = "https://github.com/Gustavjiversen01/lexaloud"
+Repository = "https://github.com/Gustavjiversen01/lexaloud"
+Changelog = "https://github.com/Gustavjiversen01/lexaloud/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Gustavjiversen01/lexaloud/issues"
 
 [project.scripts]
 lexaloud = "lexaloud.cli:main"
@@ -45,6 +88,77 @@ lexaloud-control = "lexaloud.gui_control:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+lexaloud = ["py.typed", "templates/*.template", "templates/*.toml"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    ".venv-spike0",
+    "spikes",
+    "dist",
+    "build",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "I",   # isort
+]
+ignore = [
+    "E501",  # line-too-long — formatter handles this
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["B018"]  # useless expression is fine in tests
+"src/lexaloud/gui_control.py" = ["E402"]  # gi imports must follow sys.path hack
+"src/lexaloud/indicator.py" = ["E402"]    # same
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pysbd",
+    "sounddevice",
+    "gi",
+    "gi.*",
+    "kokoro_onnx",
+    "kokoro_onnx.*",
+    "onnxruntime",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/lexaloud"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__main__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
