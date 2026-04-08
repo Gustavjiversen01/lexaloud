@@ -17,6 +17,10 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .gui_control import ControlWindow
 
 log = logging.getLogger(__name__)
 
@@ -171,7 +175,7 @@ class LexaloudIndicator:
         self._current_icon: str | None = None
         # Cached control window so the menu opens the SAME window every
         # time instead of leaking a new GtkWindow on each click.
-        self._control_window = None
+        self._control_window: ControlWindow | None = None
 
         # Prime the state so the menu label and icon reflect reality.
         self._refresh_state()
