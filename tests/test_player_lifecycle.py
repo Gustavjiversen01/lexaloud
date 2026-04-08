@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 
 from lexaloud.audio import NullSink
 from lexaloud.player import Player
@@ -19,7 +18,6 @@ def _sentences(n: int) -> list[str]:
     return [f"sentence {i}." for i in range(n)]
 
 
-@pytest.mark.asyncio
 async def test_speak_full_play_reaches_idle():
     provider = FakeProvider(synth_delay_ms=5)
     sink = NullSink()
@@ -45,7 +43,6 @@ async def test_speak_full_play_reaches_idle():
     assert len(provider.synthesize_calls) == 5
 
 
-@pytest.mark.asyncio
 async def test_speak_replace_cancels_previous_job():
     provider = FakeProvider(synth_delay_ms=20)
     sink = NullSink()
@@ -73,7 +70,6 @@ async def test_speak_replace_cancels_previous_job():
     assert sink.stop_calls >= 1
 
 
-@pytest.mark.asyncio
 async def test_pause_bounds_memory_with_bounded_queue():
     """Pause must not grow the ready queue unboundedly.
 
@@ -109,7 +105,6 @@ async def test_pause_bounds_memory_with_bounded_queue():
     assert player.state.state == "idle"
 
 
-@pytest.mark.asyncio
 async def test_stop_bumps_job_id_and_clears_state():
     provider = FakeProvider(synth_delay_ms=20)
     sink = NullSink()
@@ -135,7 +130,6 @@ async def test_stop_bumps_job_id_and_clears_state():
     assert sink.write_count >= before_stop_writes + 1
 
 
-@pytest.mark.asyncio
 async def test_append_mode_extends_pending():
     provider = FakeProvider(synth_delay_ms=50)
     sink = NullSink()
@@ -155,7 +149,6 @@ async def test_append_mode_extends_pending():
     assert sink.samples_received == expected_samples
 
 
-@pytest.mark.asyncio
 async def test_skip_advances_past_current_sentence():
     provider = FakeProvider(synth_delay_ms=20)
     sink = NullSink()
@@ -175,7 +168,6 @@ async def test_skip_advances_past_current_sentence():
     assert player.state.state == "idle"
 
 
-@pytest.mark.asyncio
 async def test_shutdown_clean():
     provider = FakeProvider(synth_delay_ms=5)
     sink = NullSink()
@@ -188,7 +180,6 @@ async def test_shutdown_clean():
     assert player.state.state == "idle"
 
 
-@pytest.mark.asyncio
 async def test_empty_speak_does_not_start_tasks():
     provider = FakeProvider()
     sink = NullSink()

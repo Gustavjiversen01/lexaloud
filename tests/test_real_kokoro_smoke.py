@@ -24,7 +24,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.mark.asyncio
 async def test_real_kokoro_produces_audible_wav(tmp_path: Path):
     artifacts = ensure_artifacts(download_if_missing=False)
     provider = KokoroProvider(

@@ -22,7 +22,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-import pytest
 
 from lexaloud.audio import WavSink
 from lexaloud.config import Config
@@ -79,7 +78,6 @@ async def _wait_for_idle(client: httpx.AsyncClient, timeout_s: float = 2.0) -> d
     return state
 
 
-@pytest.mark.asyncio
 async def test_healthz_and_state(tmp_path: Path):
     comps = _make_components(tmp_path)
     app = create_app(comps)
@@ -94,7 +92,6 @@ async def test_healthz_and_state(tmp_path: Path):
         assert r.json()["state"] in ("warming", "idle")
 
 
-@pytest.mark.asyncio
 async def test_payload_guard_middleware_rejects_oversized_content_length(tmp_path: Path):
     """Middleware returns a real 413 JSONResponse, not an HTML 500."""
     comps = _make_components(tmp_path, max_bytes=100)
@@ -107,7 +104,6 @@ async def test_payload_guard_middleware_rejects_oversized_content_length(tmp_pat
         assert "detail" in r.json()
 
 
-@pytest.mark.asyncio
 async def test_speak_produces_wav(tmp_path: Path):
     comps = _make_components(tmp_path)
     app = create_app(comps)
@@ -128,7 +124,6 @@ async def test_speak_produces_wav(tmp_path: Path):
     assert wav.stat().st_size > 44
 
 
-@pytest.mark.asyncio
 async def test_speak_empty_returns_400(tmp_path: Path):
     comps = _make_components(tmp_path)
     app = create_app(comps)
@@ -142,7 +137,6 @@ async def test_speak_empty_returns_400(tmp_path: Path):
         assert r.status_code == 422
 
 
-@pytest.mark.asyncio
 async def test_speak_then_stop(tmp_path: Path):
     comps = _make_components(tmp_path)
     app = create_app(comps)
@@ -157,7 +151,6 @@ async def test_speak_then_stop(tmp_path: Path):
         assert r.json()["state"] == "idle"
 
 
-@pytest.mark.asyncio
 async def test_speak_then_pause_resume(tmp_path: Path):
     """Pause must actually transition to 'paused' for a job that's still
     in flight, then resume must clear it. Uses a slower per-sentence delay
@@ -198,7 +191,6 @@ async def test_speak_then_pause_resume(tmp_path: Path):
         assert state.get("state") == "idle"
 
 
-@pytest.mark.asyncio
 async def test_skip_response_returns_state(tmp_path: Path):
     comps = _make_components(tmp_path)
     app = create_app(comps)
@@ -211,7 +203,6 @@ async def test_skip_response_returns_state(tmp_path: Path):
         assert body["provider_name"] == "fake"
 
 
-@pytest.mark.asyncio
 async def test_back_response_returns_state(tmp_path: Path):
     comps = _make_components(tmp_path)
     app = create_app(comps)
@@ -222,7 +213,6 @@ async def test_back_response_returns_state(tmp_path: Path):
         assert "state" in r.json()
 
 
-@pytest.mark.asyncio
 async def test_toggle_is_noop_on_idle(tmp_path: Path):
     """Toggle on an idle player should not raise and should stay idle."""
     comps = _make_components(tmp_path)
@@ -235,7 +225,6 @@ async def test_toggle_is_noop_on_idle(tmp_path: Path):
         assert r.json()["state"] in ("idle", "warming")
 
 
-@pytest.mark.asyncio
 async def test_toggle_pauses_then_resumes(tmp_path: Path):
     """Starting from speaking, one /toggle should pause, a second should resume."""
     cfg = Config()

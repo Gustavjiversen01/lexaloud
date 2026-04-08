@@ -16,7 +16,6 @@ import math
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pytest
 
 from lexaloud.audio import NullSink, SoundDeviceSink
 from lexaloud.player import Player
@@ -28,7 +27,6 @@ from lexaloud.providers.base import AudioChunk
 # ---------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_sounddevice_sink_primes_stream_with_silence_on_open():
     """The first stream.write() that sounddevice sees MUST be a block of
     silence, not the real audio. This absorbs the PulseAudio/PipeWire
@@ -71,7 +69,6 @@ async def test_sounddevice_sink_primes_stream_with_silence_on_open():
     assert samples_written.dtype == np.float32
 
 
-@pytest.mark.asyncio
 async def test_sounddevice_sink_prime_scales_with_stream_latency():
     """If PortAudio reports a higher latency than our 100 ms floor, the
     prime grows to cover it (with a 50 ms safety margin). This matters
@@ -94,7 +91,6 @@ async def test_sounddevice_sink_prime_scales_with_stream_latency():
     assert samples_written.shape == (expected_prime, 1)
 
 
-@pytest.mark.asyncio
 async def test_sounddevice_sink_continues_after_prime_failure():
     """If the silence prime raises (e.g., device went away mid-open), the
     sink should log and continue with the real stream — not crash."""
@@ -148,7 +144,6 @@ class _LongChunkProvider:
         )
 
 
-@pytest.mark.asyncio
 async def test_long_chunk_is_written_in_sub_blocks():
     """A 1-second sentence should reach the sink as approximately 10
     blocks of 100ms each (SUB_CHUNK_SECONDS=0.1). The exact count
@@ -174,7 +169,6 @@ async def test_long_chunk_is_written_in_sub_blocks():
     assert sink.samples_received == provider.sample_rate
 
 
-@pytest.mark.asyncio
 async def test_pause_interrupts_mid_sentence():
     """The critical regression test: with sub-chunking, pressing pause
     mid-sentence must halt the write loop within ~1 sub-chunk's worth of
@@ -228,7 +222,6 @@ async def test_pause_interrupts_mid_sentence():
     assert sink.samples_received == provider.sample_rate
 
 
-@pytest.mark.asyncio
 async def test_pause_resume_mid_sentence_preserves_all_audio():
     """Pausing mid-sentence and resuming must eventually deliver the full
     sentence's samples — no audio lost at the pause boundary."""
@@ -262,7 +255,6 @@ async def test_pause_resume_mid_sentence_preserves_all_audio():
     assert sink.samples_received == provider.sample_rate
 
 
-@pytest.mark.asyncio
 async def test_sub_chunking_does_not_break_short_sentences():
     """A sentence shorter than one sub-chunk block (e.g., < 100ms) should
     still play through cleanly, as a single write."""

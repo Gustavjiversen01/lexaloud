@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 
 import numpy as np
-import pytest
 
 from lexaloud.audio import NullSink
 from lexaloud.player import Player
@@ -38,7 +37,6 @@ class _FailingProvider:
         raise RuntimeError("boom")
 
 
-@pytest.mark.asyncio
 async def test_producer_exception_does_not_hang_consumer():
     """If the provider raises, the producer must still put the sentinel so
     the consumer reaches idle instead of waiting on an empty queue forever.
@@ -97,7 +95,6 @@ class _SlowProvider:
         )
 
 
-@pytest.mark.asyncio
 async def test_skip_does_not_lose_prefetched_sentences():
     """Skip should cut the current sentence but NOT discard the pre-fetched
     sentences sitting in the ready queue. After skip, all remaining
@@ -130,7 +127,6 @@ async def test_skip_does_not_lose_prefetched_sentences():
     )
 
 
-@pytest.mark.asyncio
 async def test_back_rewinds_one_sentence():
     """After finishing sentence 0 and starting sentence 1, back() should
     rewind so the player replays sentence 0 next. The total number of
@@ -168,7 +164,6 @@ async def test_back_rewinds_one_sentence():
 # ---------- BUG 4: append-during-shutdown race ----------
 
 
-@pytest.mark.asyncio
 async def test_append_after_producer_done_starts_fresh_job():
     """If the producer has already exited (short job), append mode should
     fall through to starting a fresh job so the new sentences don't get
@@ -207,7 +202,6 @@ async def test_append_after_producer_done_starts_fresh_job():
 # ---------- warming state is wired up ----------
 
 
-@pytest.mark.asyncio
 async def test_set_warming_toggles_state():
     provider = FakeProvider()
     sink = NullSink()
@@ -220,7 +214,6 @@ async def test_set_warming_toggles_state():
     assert player.state.state == "idle"
 
 
-@pytest.mark.asyncio
 async def test_set_warming_does_not_clobber_speaking():
     provider = FakeProvider(synth_delay_ms=20)
     sink = NullSink()
@@ -234,7 +227,6 @@ async def test_set_warming_does_not_clobber_speaking():
     await player.stop()
 
 
-@pytest.mark.asyncio
 async def test_pause_is_noop_during_warming():
     """Pause must NOT transition warming -> paused. Previously it did, and
     resume() would then flip to "speaking" with no running producer,

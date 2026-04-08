@@ -48,7 +48,6 @@ class _AlwaysFailingProvider:
         return None
 
 
-@pytest.mark.asyncio
 async def test_last_error_set_when_all_synthesis_fails():
     """If every sentence in a job returns None from the provider, the
     player must set last_error so the user sees WHY they got silence."""
@@ -69,7 +68,6 @@ async def test_last_error_set_when_all_synthesis_fails():
     assert "journalctl" in player.state.last_error.lower() or "synthesis" in player.state.last_error.lower()
 
 
-@pytest.mark.asyncio
 async def test_last_error_cleared_on_new_speak():
     """A fresh /speak must clear the previous job's last_error so stale
     errors don't stick around forever."""
@@ -95,7 +93,6 @@ async def test_last_error_cleared_on_new_speak():
     assert player.state.last_error is None
 
 
-@pytest.mark.asyncio
 async def test_last_error_not_set_for_cancellation():
     """Cancelling a job (via stop or replace) must NOT set last_error —
     that's the user's explicit action, not a failure."""

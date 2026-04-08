@@ -24,7 +24,6 @@ def make_sine_chunk(sr: int = 24000, seconds: float = 0.1, freq: float = 440.0) 
     return AudioChunk(samples=samples, sample_rate=sr)
 
 
-@pytest.mark.asyncio
 async def test_null_sink_counts_samples():
     sink = NullSink()
     await sink.begin_stream(24000, 1)
@@ -38,7 +37,6 @@ async def test_null_sink_counts_samples():
     assert sink.end_calls == 1
 
 
-@pytest.mark.asyncio
 async def test_null_sink_rejects_mismatched_sample_rate():
     sink = NullSink()
     await sink.begin_stream(24000, 1)
@@ -47,7 +45,6 @@ async def test_null_sink_rejects_mismatched_sample_rate():
         await sink.write(chunk)
 
 
-@pytest.mark.asyncio
 async def test_null_sink_stop_clears_stream_state():
     sink = NullSink()
     await sink.begin_stream(24000, 1)
@@ -58,7 +55,6 @@ async def test_null_sink_stop_clears_stream_state():
     assert len(sink.begin_calls) == 2
 
 
-@pytest.mark.asyncio
 async def test_wav_sink_writes_non_silent_file(tmp_path: Path):
     sink = WavSink(tmp_path)
     await sink.begin_stream(24000, 1)
@@ -76,7 +72,6 @@ async def test_wav_sink_writes_non_silent_file(tmp_path: Path):
     assert frames == 3 * 2400
 
 
-@pytest.mark.asyncio
 async def test_wav_sink_new_stream_creates_new_file(tmp_path: Path):
     sink = WavSink(tmp_path)
     for _ in range(2):
@@ -87,7 +82,6 @@ async def test_wav_sink_new_stream_creates_new_file(tmp_path: Path):
     assert sink.written_files[0] != sink.written_files[1]
 
 
-@pytest.mark.asyncio
 async def test_wav_sink_stop_flushes(tmp_path: Path):
     sink = WavSink(tmp_path)
     await sink.begin_stream(24000, 1)
@@ -97,7 +91,6 @@ async def test_wav_sink_stop_flushes(tmp_path: Path):
     assert sink.written_files[0].exists()
 
 
-@pytest.mark.asyncio
 async def test_wav_sink_rejects_mismatched_sample_rate(tmp_path: Path):
     sink = WavSink(tmp_path)
     await sink.begin_stream(24000, 1)
