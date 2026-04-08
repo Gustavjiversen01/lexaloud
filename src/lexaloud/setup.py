@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+from importlib.resources import files
 from pathlib import Path
 
 from .cli import EXIT_GENERIC_ERROR, EXIT_OK
@@ -29,39 +30,23 @@ from .models import default_cache_dir, ensure_artifacts
 from .session import detect_session
 
 
-# systemd unit template.
+# systemd unit template loaded from src/lexaloud/templates/ via
+# importlib.resources. This lets the package ship the template as a
+# data file (see [tool.setuptools.package-data] in pyproject.toml)
+# instead of baking it into a Python string literal.
 #
-# Notes on the choices:
-# - `UnsetEnvironment=PYTHONPATH` cleanly removes any inherited PYTHONPATH
-#   (ROS, ComfyUI, etc.) so the daemon's venv sees only its own site-packages.
-# - `TimeoutStopSec=10` ensures SIGTERM is followed by SIGKILL within 10s
-#   rather than the default 90s, so a stuck worker thread in the dedicated
-#   executor doesn't block user logout.
-# - `After=default.target` only — `sound.target` is a system-level target
-#   and is not present in the per-user manager. The daemon lazily opens the
-#   audio device on first playback, so no audio ordering is needed.
-# - ExecStart uses systemd's C-style double-quote escaping so paths with
-#   spaces work correctly.
-SYSTEMD_UNIT_TEMPLATE = """\
-[Unit]
-Description=Lexaloud TTS daemon
-After=default.target
-
-[Service]
-Type=simple
-ExecStart={binary_quoted} daemon
-Restart=on-failure
-RestartSec=2
-TimeoutStopSec=10
-# Scrub PYTHONPATH to avoid leaking ROS/Jazzy or other user-provided
-# PYTHONPATH contents into the daemon's Python environment.
-UnsetEnvironment=PYTHONPATH
-# Run from the user's home so relative paths resolve sensibly.
-WorkingDirectory=%h
-
-[Install]
-WantedBy=default.target
-"""
+# Key choices documented inline in the template file:
+# - UnsetEnvironment=PYTHONPATH cleans inherited PYTHONPATH
+#   (ROS, ComfyUI, etc.)
+# - TimeoutStopSec=10 keeps systemd SIGTERM responsive
+# - RuntimeDirectory=lexaloud + RuntimeDirectoryMode=0700 creates the
+#   parent dir for the daemon's Unix domain socket with the correct
+#   permissions; systemd cleans it up on service stop
+# - After=default.target only (sound.target isn't in the user manager)
+def _load_systemd_template() -> str:
+    return files("lexaloud.templates").joinpath("systemd.service.template").read_text(
+        encoding="utf-8"
+    )
 
 
 def _systemd_quote(s: str) -> str:
@@ -100,7 +85,7 @@ def _systemd_user_dir() -> Path:
 
 
 def _render_unit(binary: Path) -> str:
-    return SYSTEMD_UNIT_TEMPLATE.format(binary_quoted=_systemd_quote(str(binary)))
+    return _load_systemd_template().format(binary_quoted=_systemd_quote(str(binary)))
 
 
 def _hotkey_walkthrough(binary: Path) -> str:

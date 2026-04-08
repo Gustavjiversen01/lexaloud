@@ -30,7 +30,9 @@ classifiers = [
     "Environment :: Console",
     "Environment :: X11 Applications :: GTK",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
+    # PEP 639: license is expressed via `license = "MIT"` above; do NOT
+    # also include "License :: OSI Approved :: MIT License" here — setuptools
+    # >= 77 raises InvalidConfigError if both are set.
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",

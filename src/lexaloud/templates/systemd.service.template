@@ -1,0 +1,23 @@
+[Unit]
+Description=Lexaloud TTS daemon
+After=default.target
+
+[Service]
+Type=simple
+ExecStart={binary_quoted} daemon
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=10
+# Scrub PYTHONPATH to avoid leaking ROS/Jazzy or other user-provided
+# PYTHONPATH contents into the daemon's Python environment.
+UnsetEnvironment=PYTHONPATH
+# Create and own $XDG_RUNTIME_DIR/lexaloud/ so the daemon's Unix domain
+# socket has a parent dir that only the owner user can reach. systemd
+# removes it automatically on service stop.
+RuntimeDirectory=lexaloud
+RuntimeDirectoryMode=0700
+# Run from the user's home so relative paths resolve sensibly.
+WorkingDirectory=%h
+
+[Install]
+WantedBy=default.target
