@@ -213,7 +213,7 @@ def _event_to_binding(event) -> str | None:
 class ControlWindow(Gtk.Window):
     def __init__(self) -> None:
         super().__init__(title="ReadAloud — Control")
-        self.set_default_size(480, 360)
+        self.set_default_size(520, 480)
         self.set_border_width(16)
         self.set_position(Gtk.WindowPosition.CENTER)
 
@@ -247,6 +247,40 @@ class ControlWindow(Gtk.Window):
         self.lang_combo.add_attribute(lang_renderer, "text", 1)
         voice_box.pack_start(self.lang_combo, False, False, 0)
 
+        # Speed slider. Range 0.5-2.0, step 0.05, default 1.0.
+        # Per the plan's research, the genuinely safe range for dense academic
+        # prose is ~0.85-1.3; outside that the slider still works but the
+        # hint label below tells the user they're in risky territory.
+        speed_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        voice_box.pack_start(speed_row, False, False, 0)
+        speed_label = Gtk.Label(label="Speed", xalign=0)
+        speed_row.pack_start(speed_label, False, False, 0)
+
+        self.speed_adjustment = Gtk.Adjustment(
+            value=1.0, lower=0.5, upper=2.0, step_increment=0.05, page_increment=0.1
+        )
+        self.speed_scale = Gtk.Scale(
+            orientation=Gtk.Orientation.HORIZONTAL, adjustment=self.speed_adjustment
+        )
+        self.speed_scale.set_digits(2)
+        self.speed_scale.set_value_pos(Gtk.PositionType.RIGHT)
+        # Tick marks at common anchors so the user has a sense of the range.
+        for mark, label in [
+            (0.5, "0.5"),
+            (1.0, "1.0"),
+            (1.3, "1.3"),
+            (1.5, "1.5"),
+            (2.0, "2.0"),
+        ]:
+            self.speed_scale.add_mark(mark, Gtk.PositionType.BOTTOM, label)
+        self.speed_scale.set_hexpand(True)
+        speed_row.pack_start(self.speed_scale, True, True, 0)
+
+        self.speed_hint = Gtk.Label(label="", xalign=0)
+        self.speed_hint.get_style_context().add_class("dim-label")
+        voice_box.pack_start(self.speed_hint, False, False, 0)
+        self.speed_adjustment.connect("value-changed", self._on_speed_changed)
+
         # Hotkeys section
         keys_frame = Gtk.Frame(label="Hotkeys (GNOME custom shortcuts)")
         keys_grid = Gtk.Grid(column_spacing=12, row_spacing=8)
@@ -276,7 +310,7 @@ class ControlWindow(Gtk.Window):
         self.status_label.get_style_context().add_class("dim-label")
         outer.pack_end(self.status_label, False, False, 0)
 
-        apply_btn = Gtk.Button(label="Apply voice + restart daemon")
+        apply_btn = Gtk.Button(label="Apply & restart daemon")
         apply_btn.connect("clicked", self._on_apply_voice)
         button_box.pack_start(apply_btn, False, False, 0)
 
@@ -294,6 +328,7 @@ class ControlWindow(Gtk.Window):
         provider = cfg.get("provider", {}) if isinstance(cfg, dict) else {}
         current_voice = provider.get("voice", "af_heart")
         current_lang = provider.get("lang", "en-us")
+        current_speed = float(provider.get("speed", 1.0))
 
         for i, (value, _label) in enumerate(KOKORO_VOICES):
             if value == current_voice:
@@ -314,6 +349,27 @@ class ControlWindow(Gtk.Window):
         else:
             self.lang_combo.set_active(0)
 
+        # Clamp the stored speed to the slider's legal range and set it.
+        clamped = max(0.5, min(2.0, current_speed))
+        self.speed_adjustment.set_value(clamped)
+        # Priming the hint label (the value-changed signal also fires).
+        self._on_speed_changed(self.speed_adjustment)
+
+    def _on_speed_changed(self, adjustment) -> None:
+        v = adjustment.get_value()
+        if 0.85 <= v <= 1.3:
+            self.speed_hint.set_text(f"{v:.2f}× — safe range for dense reading.")
+        elif v < 0.85:
+            self.speed_hint.set_text(f"{v:.2f}× — slower than natural; may feel dragged.")
+        elif v <= 1.5:
+            self.speed_hint.set_text(
+                f"{v:.2f}× — fine for familiar material, may strain comprehension on new dense text."
+            )
+        else:
+            self.speed_hint.set_text(
+                f"{v:.2f}× — risky for unfamiliar academic material; comprehension drops."
+            )
+
     # ---------- handlers ----------
 
     def _selected_voice(self) -> str | None:
@@ -331,6 +387,7 @@ class ControlWindow(Gtk.Window):
     def _on_apply_voice(self, _btn) -> None:
         voice = self._selected_voice()
         lang = self._selected_lang()
+        speed = round(self.speed_adjustment.get_value(), 2)
         if voice is None or lang is None:
             self.status_label.set_text("Pick a voice and a language first.")
             return
@@ -341,14 +398,16 @@ class ControlWindow(Gtk.Window):
         provider = cfg.setdefault("provider", {})
         provider["voice"] = voice
         provider["lang"] = lang
+        provider["speed"] = speed
         try:
             _save_config_dict(cfg)
         except Exception as e:  # noqa: BLE001
             self.status_label.set_text(f"Saving config failed: {e}")
             return
 
-        # Restart the daemon to pick up the new voice (config is loaded at
-        # daemon startup). If the daemon wasn't running, just leave it off.
+        # Restart the daemon to pick up the new voice/speed (config is loaded
+        # at daemon startup). If the daemon wasn't running, just leave it off.
+        summary = f"voice={voice}, lang={lang}, speed={speed:.2f}×"
         try:
             r = subprocess.run(
                 ["systemctl", "--user", "is-active", "readaloud.service"],
@@ -362,17 +421,15 @@ class ControlWindow(Gtk.Window):
                     capture_output=True,
                     timeout=10,
                 )
-                self.status_label.set_text(
-                    f"Saved voice={voice}, lang={lang}; daemon restarted."
-                )
+                self.status_label.set_text(f"Saved {summary}; daemon restarted.")
             else:
                 self.status_label.set_text(
-                    f"Saved voice={voice}, lang={lang}. Daemon is stopped; "
-                    "it will use the new voice on the next start."
+                    f"Saved {summary}. Daemon is stopped; "
+                    "it will use the new settings on the next start."
                 )
         except Exception as e:  # noqa: BLE001
             self.status_label.set_text(
-                f"Saved voice={voice}, lang={lang}; couldn't restart daemon: {e}"
+                f"Saved {summary}; couldn't restart daemon: {e}"
             )
 
     def _on_change_binding(self, _btn, path_suffix: str) -> None:

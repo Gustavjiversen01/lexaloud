@@ -15,8 +15,26 @@ def test_load_config_missing_file_returns_defaults(tmp_path: Path):
     assert cfg.daemon.port == 5487
     assert cfg.provider.name == "kokoro"
     assert cfg.provider.voice == "af_heart"
+    assert cfg.provider.lang == "en-us"
+    assert cfg.provider.speed == 1.0
     assert cfg.preprocessor.strip_numeric_bracket_citations is True
     assert cfg.preprocessor.strip_parenthetical_citations is False
+
+
+def test_load_config_speed_override(tmp_path: Path):
+    path = tmp_path / "config.toml"
+    path.write_text(
+        """
+[provider]
+voice = "af_bella"
+speed = 1.15
+""".strip()
+    )
+    cfg = load_config(path)
+    assert cfg.provider.voice == "af_bella"
+    assert cfg.provider.speed == 1.15
+    # Unchanged
+    assert cfg.provider.lang == "en-us"
 
 
 def test_load_config_partial_override(tmp_path: Path):

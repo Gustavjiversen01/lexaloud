@@ -42,6 +42,11 @@ class ProviderConfig:
     name: str = "kokoro"
     voice: str = "af_heart"
     lang: str = "en-us"
+    # Playback speed multiplier. 1.0 = normal; >1 faster; <1 slower.
+    # Kokoro natively supports this; it's passed to Kokoro.create(speed=...).
+    # Safe range for dense academic prose is ~0.85-1.3 per the design plan;
+    # values outside that are tolerated but may hurt comprehension.
+    speed: float = 1.0
 
 
 @dataclass

@@ -87,6 +87,7 @@ def build_components(cfg: Config | None = None) -> DaemonComponents:
         voices_path=artifacts["voices-v1.0.bin"],
         voice=cfg.provider.voice,
         lang=cfg.provider.lang,
+        speed=cfg.provider.speed,
     )
     sink: AudioSink = SoundDeviceSink()
     player = Player(

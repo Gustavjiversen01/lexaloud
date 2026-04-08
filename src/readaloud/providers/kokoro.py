@@ -59,12 +59,14 @@ class KokoroProvider:
         *,
         voice: str = "af_heart",
         lang: str = "en-us",
+        speed: float = 1.0,
         prefer_cuda: bool = True,
     ) -> None:
         self.model_path = Path(model_path)
         self.voices_path = Path(voices_path)
         self.voice = voice
         self.lang = lang
+        self.speed = speed
         self.prefer_cuda = prefer_cuda
 
         self._kokoro: Any = None
@@ -207,7 +209,12 @@ class KokoroProvider:
 
             def _do_warmup() -> None:
                 # Short string: exercise the graph/CUDA kernels once.
-                self._kokoro.create("Ready.", voice=self.voice, lang=self.lang)
+                self._kokoro.create(
+                    "Ready.",
+                    voice=self.voice,
+                    speed=self.speed,
+                    lang=self.lang,
+                )
 
             try:
                 await loop.run_in_executor(None, _do_warmup)
@@ -253,7 +260,10 @@ class KokoroProvider:
 
         def _do_synthesize() -> tuple[np.ndarray, int]:
             samples, sr = self._kokoro.create(
-                sentence, voice=self.voice, lang=self.lang
+                sentence,
+                voice=self.voice,
+                speed=self.speed,
+                lang=self.lang,
             )
             if not isinstance(samples, np.ndarray):
                 samples = np.asarray(samples, dtype=np.float32)
