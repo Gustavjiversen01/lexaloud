@@ -220,3 +220,49 @@ async def test_back_response_returns_state(tmp_path: Path):
         r = await client.post("/back")
         assert r.status_code == 200
         assert "state" in r.json()
+
+
+@pytest.mark.asyncio
+async def test_toggle_is_noop_on_idle(tmp_path: Path):
+    """Toggle on an idle player should not raise and should stay idle."""
+    comps = _make_components(tmp_path)
+    app = create_app(comps)
+    async with _client_for(app) as client:
+        # Wait for warmup to finish so the state is deterministically idle.
+        await _wait_for_idle(client, timeout_s=2.0)
+        r = await client.post("/toggle")
+        assert r.status_code == 200
+        assert r.json()["state"] in ("idle", "warming")
+
+
+@pytest.mark.asyncio
+async def test_toggle_pauses_then_resumes(tmp_path: Path):
+    """Starting from speaking, one /toggle should pause, a second should resume."""
+    cfg = Config()
+    # Slow enough sentences that the job is still in flight when we toggle.
+    provider = FakeProvider(
+        sample_rate=24000, seconds_per_sentence=0.05, synth_delay_ms=20
+    )
+    sink = WavSink(tmp_path)
+    player = Player(provider=provider, sink=sink, ready_queue_depth=2)
+    preproc_config = PreprocessorConfig()
+    comps = DaemonComponents(
+        cfg=cfg, provider=provider, sink=sink, player=player, preproc_config=preproc_config
+    )
+    app = create_app(comps)
+    async with _client_for(app) as client:
+        await client.post(
+            "/speak", json={"text": "one. two. three. four. five."}
+        )
+        # Give the consumer a moment to begin playing.
+        await asyncio.sleep(0.02)
+        # First toggle: pause (or briefly already idle if very fast).
+        r = await client.post("/toggle")
+        assert r.status_code == 200
+        assert r.json()["state"] in ("paused", "idle")
+        # Second toggle: resume (unless already idle).
+        r = await client.post("/toggle")
+        assert r.status_code == 200
+        # Drain to idle.
+        state = await _wait_for_idle(client, timeout_s=3.0)
+        assert state.get("state") == "idle"

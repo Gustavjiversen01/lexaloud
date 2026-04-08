@@ -219,6 +219,11 @@ def cmd_resume(args) -> int:
     return EXIT_OK
 
 
+def cmd_toggle(args) -> int:
+    _post_to_daemon("/toggle")
+    return EXIT_OK
+
+
 def cmd_stop(args) -> int:
     _post_to_daemon("/stop")
     return EXIT_OK
@@ -290,6 +295,7 @@ def build_parser() -> argparse.ArgumentParser:
     for name, handler in [
         ("pause", cmd_pause),
         ("resume", cmd_resume),
+        ("toggle", cmd_toggle),
         ("stop", cmd_stop),
         ("skip", cmd_skip),
         ("back", cmd_back),

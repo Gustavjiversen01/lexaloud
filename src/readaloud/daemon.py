@@ -203,6 +203,16 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
         await comps.player.stop()
         return StateResponse(**asdict(comps.player.state))
 
+    @app.post("/toggle", response_model=StateResponse)
+    async def toggle() -> StateResponse:
+        """Flip between speaking and paused. No-op in idle/warming."""
+        current = comps.player.state.state
+        if current == "speaking":
+            await comps.player.pause()
+        elif current == "paused":
+            await comps.player.resume()
+        return StateResponse(**asdict(comps.player.state))
+
     @app.post("/skip", response_model=StateResponse)
     async def skip() -> StateResponse:
         await comps.player.skip()
