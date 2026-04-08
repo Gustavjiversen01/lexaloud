@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from lexaloud.session import SessionInfo, detect_session
+from lexaloud.session import detect_session
 
 
 def test_detect_wayland(monkeypatch):
@@ -18,7 +18,6 @@ def test_detect_wayland(monkeypatch):
     assert info.desktop == "GNOME"
     assert info.wl_paste == "/usr/bin/wl-paste"
     assert info.xclip == "/usr/bin/xclip"
-    assert info.notify_send == "/usr/bin/notify-send"
 
 
 def test_detect_x11(monkeypatch):

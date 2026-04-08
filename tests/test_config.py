@@ -13,7 +13,6 @@ def test_load_config_missing_file_returns_defaults(tmp_path: Path):
     assert cfg.capture.max_bytes == 200 * 1024
     assert cfg.daemon.host == "127.0.0.1"
     assert cfg.daemon.port == 5487
-    assert cfg.provider.name == "kokoro"
     assert cfg.provider.voice == "af_heart"
     assert cfg.provider.lang == "en-us"
     assert cfg.provider.speed == 1.0

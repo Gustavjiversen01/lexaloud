@@ -26,23 +26,23 @@ class CaptureConfig:
     max_bytes: int = 200 * 1024  # 200 KB
     # Per-tool timeout in seconds for the capture subprocess calls.
     subprocess_timeout_s: float = 2.0
-    notify_timeout_s: float = 1.0
 
 
 @dataclass
 class DaemonConfig:
+    # host/port are deprecated in v0.1.0. The daemon binds a Unix domain
+    # socket at $XDG_RUNTIME_DIR/lexaloud/lexaloud.sock; these fields are
+    # kept only for forward compatibility with older config files and are
+    # ignored at runtime. Will be removed in v0.2.
     host: str = "127.0.0.1"
     port: int = 5487
     # Bounded ready-queue depth (number of completed sentence chunks between
     # the provider task and the sink consumer).
     ready_queue_depth: int = 3
-    # On startup, synthesize this string once to absorb cold-start cost.
-    warmup_text: str = "Ready."
 
 
 @dataclass
 class ProviderConfig:
-    name: str = "kokoro"
     voice: str = "af_heart"
     lang: str = "en-us"
     # Playback speed multiplier. 1.0 = normal; >1 faster; <1 slower.

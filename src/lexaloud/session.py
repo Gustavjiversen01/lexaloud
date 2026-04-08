@@ -16,7 +16,6 @@ class SessionInfo:
     desktop: str  # e.g. "GNOME", "KDE", "sway"
     wl_paste: str | None
     xclip: str | None
-    notify_send: str | None
 
     @property
     def is_wayland(self) -> bool:
@@ -43,5 +42,4 @@ def detect_session() -> SessionInfo:
         desktop=desktop,
         wl_paste=shutil.which("wl-paste"),
         xclip=shutil.which("xclip"),
-        notify_send=shutil.which("notify-send"),
     )

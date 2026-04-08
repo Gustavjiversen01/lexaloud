@@ -52,7 +52,6 @@ class _FakeSession:
         self.desktop = "GNOME"
         self.wl_paste = "/usr/bin/wl-paste" if has_wl else None
         self.xclip = "/usr/bin/xclip" if has_xclip else None
-        self.notify_send = "/usr/bin/notify-send"
 
     @property
     def is_wayland(self) -> bool:
