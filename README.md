@@ -107,13 +107,20 @@ tests/                # 73 passing tests, no GPU or audio device required
 ## Tests
 
 ```bash
-env -u PYTHONPATH .venv-spike0/bin/python -m pytest tests/
+env -u PYTHONPATH .venv-spike0/bin/python -m pytest tests/ --ignore=tests/test_real_kokoro_smoke.py
 ```
 
-73 tests run in ~1 second. None require the GPU or an audio device.
+122 tests run in ~1.5 seconds. None require the GPU or an audio device.
+
+The daemon smoke tests use `httpx.AsyncClient` + `ASGITransport` driving
+FastAPI's lifespan manually, instead of `fastapi.testclient.TestClient`.
+TestClient relies on anyio's portal to bridge sync test code into the
+ASGI app on a worker thread; we observed it hang in this lockfile's
+combination of `fastapi==0.135.3 / starlette==1.0.0 / anyio==4.13.0`,
+and the async approach is closer to how the app actually runs anyway.
 
 The optional real-Kokoro smoke test uses the real model and the real
-`sounddevice` stack:
+`sounddevice` stack (1 extra test, brings the total to 123):
 
 ```bash
 READALOUD_REAL_TTS=1 .venv-spike0/bin/python -m pytest tests/test_real_kokoro_smoke.py -s
