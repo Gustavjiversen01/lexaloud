@@ -29,7 +29,7 @@ import logging
 import sys
 
 from . import __version__
-from .config import load_config
+from .config import load_config, socket_path
 from .selection import (
     CaptureResult,
     SelectionDisplayUnavailable,
@@ -56,11 +56,6 @@ log = logging.getLogger("lexaloud.cli")
 # ---------- daemon client helpers ----------
 
 
-def _daemon_url(path: str) -> str:
-    cfg = load_config()
-    return f"http://{cfg.daemon.host}:{cfg.daemon.port}{path}"
-
-
 def _daemon_down_error(msg: str) -> None:
     print(msg, file=sys.stderr)
     try_notify(
@@ -83,21 +78,26 @@ def _parse_json_or_exit(resp) -> dict:
 
 
 def _client():
-    # connect: 3s (tolerates brief contention on busy systems and the
-    # 1-3s systemd startup window right after `enable --now`);
-    # read: 5s (routes should return fast; Player.speak is non-blocking).
+    # Unix domain socket transport. base_url is a dummy host that uvicorn
+    # and httpx agree on; the actual connection is over the socket at
+    # `socket_path()`. Timeouts mirror the previous TCP client:
+    # connect: 3s (tolerates brief systemd startup window after enable --now);
+    # read: 5s (routes return fast, Player.speak is non-blocking).
     import httpx
 
-    return httpx.Client(timeout=httpx.Timeout(5.0, connect=3.0))
+    return httpx.Client(
+        transport=httpx.HTTPTransport(uds=str(socket_path())),
+        base_url="http://lexaloud",
+        timeout=httpx.Timeout(5.0, connect=3.0),
+    )
 
 
 def _post_to_daemon(path: str, json_body: dict | None = None) -> dict:
     import httpx
 
-    url = _daemon_url(path)
     try:
         with _client() as client:
-            resp = client.post(url, json=json_body or {})
+            resp = client.post(path, json=json_body or {})
     except (
         httpx.ConnectError,
         httpx.ConnectTimeout,
@@ -131,10 +131,9 @@ def _post_to_daemon(path: str, json_body: dict | None = None) -> dict:
 def _get_from_daemon(path: str) -> dict:
     import httpx
 
-    url = _daemon_url(path)
     try:
         with _client() as client:
-            resp = client.get(url)
+            resp = client.get(path)
     except (
         httpx.ConnectError,
         httpx.ConnectTimeout,

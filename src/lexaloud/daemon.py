@@ -36,7 +36,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .audio import AudioSink, SoundDeviceSink
-from .config import Config, load_config
+from .config import Config, load_config, runtime_dir, socket_path
 from .models import assert_onnxruntime_environment, ensure_artifacts
 from .player import Player, PlayerState
 from .preprocessor import PreprocessorConfig, preprocess
@@ -253,15 +253,54 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
 
 
 def run() -> None:
-    """Entry point for `lexaloud daemon`."""
+    """Entry point for `lexaloud daemon`.
+
+    Binds a Unix domain socket at $XDG_RUNTIME_DIR/lexaloud/lexaloud.sock.
+    The parent dir is created and owned by systemd via `RuntimeDirectory=`
+    in the unit file; as a belt-and-suspenders fallback for non-systemd
+    invocations (e.g., running `lexaloud daemon` from a shell for
+    debugging), we create it here too with mode 0700.
+
+    The previous TCP loopback bind (cfg.daemon.host/port) is deprecated in
+    v0.1.0 and kept only in the Config dataclass for forward compat.
+    """
     import uvicorn
 
-    cfg = load_config()
+    _ = load_config()  # load_config still parses config.toml for side effects
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
     )
+
+    sock = socket_path()
+    parent = sock.parent
+    rt = runtime_dir()
+
+    # Defense-in-depth: refuse to bind outside the user's XDG_RUNTIME_DIR.
+    # This guards against environment-variable shenanigans (e.g., a caller
+    # who sets XDG_RUNTIME_DIR to /tmp before invoking the daemon).
+    try:
+        resolved_sock = sock.resolve()
+        resolved_rt = rt.resolve()
+    except OSError as e:
+        log.error("cannot resolve socket path: %s", e)
+        raise
+    if not str(resolved_sock).startswith(str(resolved_rt) + "/"):
+        raise RuntimeError(
+            f"refusing to bind UDS outside XDG_RUNTIME_DIR: "
+            f"socket={resolved_sock}, runtime_dir={resolved_rt}"
+        )
+
+    parent.mkdir(parents=True, exist_ok=True)
+    # Enforce 0700 on the parent dir (matches RuntimeDirectoryMode=0700
+    # in the systemd unit).
+    parent.chmod(0o700)
+    # Remove any stale socket from a previous run. Safe because UDS
+    # files are not inodes the OS reclaims automatically on daemon crash.
+    if sock.exists() or sock.is_symlink():
+        sock.unlink()
+
     app = create_app()
-    uvicorn.run(app, host=cfg.daemon.host, port=cfg.daemon.port, log_config=None)
+    uvicorn.run(app, uds=str(sock), log_config=None)
 
 
 if __name__ == "__main__":

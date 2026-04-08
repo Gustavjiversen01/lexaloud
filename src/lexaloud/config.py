@@ -26,6 +26,36 @@ def config_path() -> Path:
     return root / "lexaloud" / "config.toml"
 
 
+def runtime_dir() -> Path:
+    """Return the XDG_RUNTIME_DIR for the current user.
+
+    Falls back to /run/user/<uid> if $XDG_RUNTIME_DIR is unset, which is
+    where systemd-logind normally creates it anyway. Used by
+    `socket_path()` to locate the daemon's Unix domain socket parent dir.
+    """
+    base = os.environ.get("XDG_RUNTIME_DIR")
+    if base:
+        return Path(base)
+    return Path(f"/run/user/{os.getuid()}")
+
+
+def socket_path() -> Path:
+    """Return the absolute path to the daemon's Unix domain socket.
+
+    The systemd user unit template sets `RuntimeDirectory=lexaloud` with
+    `RuntimeDirectoryMode=0700`, which causes systemd to create
+    `$XDG_RUNTIME_DIR/lexaloud/` with mode 0700 before the daemon starts
+    and remove it on service stop. The socket lives at
+    `$XDG_RUNTIME_DIR/lexaloud/lexaloud.sock` inside that dir.
+
+    We intentionally do NOT `.resolve()` the path here — `$XDG_RUNTIME_DIR`
+    is expected to be `/run/user/<uid>`, a systemd-managed tmpfs that the
+    kernel creates per-login, and the daemon asserts the path is under it
+    before binding.
+    """
+    return runtime_dir() / "lexaloud" / "lexaloud.sock"
+
+
 @dataclass
 class CaptureConfig:
     max_bytes: int = 200 * 1024  # 200 KB

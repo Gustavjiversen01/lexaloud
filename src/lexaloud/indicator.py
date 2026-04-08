@@ -12,7 +12,6 @@ daemon, CLI, and tests are unaffected.
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 import sys
@@ -151,14 +150,26 @@ def _daemon_state() -> str:
     if the daemon answers, or "" on any failure (daemon down, HTTP
     error, bad JSON). The indicator uses this to distinguish the
     "warming" state from plain "idle" so the menu can grey out the
-    Speak item during cold-start. 500 ms connect / read timeouts keep
-    the GTK main loop responsive.
+    Speak item during cold-start. 500 ms timeouts keep the GTK main
+    loop responsive.
+
+    Uses httpx over the Unix domain socket at
+    `$XDG_RUNTIME_DIR/lexaloud/lexaloud.sock` — Python's urllib does not
+    support UDS, so we depend on httpx (already a runtime dependency
+    transitively via the CLI).
     """
     try:
-        from urllib.request import urlopen
+        import httpx
 
-        with urlopen("http://127.0.0.1:5487/state", timeout=0.5) as resp:
-            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        from .config import socket_path
+
+        with httpx.Client(
+            transport=httpx.HTTPTransport(uds=str(socket_path())),
+            base_url="http://lexaloud",
+            timeout=httpx.Timeout(0.5, connect=0.5),
+        ) as client:
+            resp = client.get("/state")
+            data = resp.json()
         return str(data.get("state", ""))
     except Exception:  # noqa: BLE001
         return ""
