@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-12
+
+### Fixed
+- **First-use audio clipping**: the first 1-2 seconds of speech were cut
+  on the initial hotkey press because PipeWire's 24000-to-44100 Hz
+  resampler took ~1-2s to initialize. The daemon now pre-warms the audio
+  stream during startup (writes 2s of silence alongside the Kokoro CUDA
+  JIT warmup), so the stream is already hot when the user first presses
+  the hotkey.
+- **Audio stream stays alive across /stop**: `stop()` now aborts buffered
+  audio without closing the PortAudio stream. The next `speak` reuses
+  the warm stream with a 20ms restart prime instead of paying the full
+  resampler cost again.
+- **Event-loop stall on cold open**: `begin_stream()` now runs the
+  blocking PortAudio constructor in an executor instead of blocking the
+  asyncio event loop.
+
+### Changed
+- Removed 10 stale `# type: ignore` comments that mypy's
+  `warn_unused_ignores` was flagging (the `[[tool.mypy.overrides]]`
+  config already silences these modules).
+
+[Unreleased]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.0...v0.1.1
+
 ## [0.1.0] - 2026-04-09
 
 ### Added
