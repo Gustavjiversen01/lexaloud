@@ -23,7 +23,7 @@ Repeat for `toggle`, `speak-clipboard`, etc.
 - The Lexaloud Control window's **Change…** button for hotkeys is
   currently a no-op off-GNOME (it writes to the GNOME-specific
   gsettings schema). Planned fix: grey out the button on non-GNOME, or
-  write to KGlobalAccel on KDE. Tracking issue: TBD.
+  write to KGlobalAccel on KDE. Planned for v0.2.
 
 ## Contributions welcome
 

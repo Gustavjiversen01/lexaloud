@@ -29,7 +29,7 @@ env -u PYTHONPATH .venv-dev/bin/python -m pytest tests/ \
     --ignore=tests/test_real_kokoro_smoke.py -q
 ```
 
-Target: 145 tests passing, under 3 seconds. No GPU or audio device needed
+Target: 166 tests passing, under 3 seconds. No GPU or audio device needed
 (tests use `FakeProvider` + `NullSink` + `ASGITransport`).
 
 For a full end-to-end test with the real Kokoro model and real

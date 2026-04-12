@@ -9,7 +9,7 @@ On Ubuntu GNOME Wayland, `wl-paste --primary` may return empty for some
 applications (notably Electron apps like VS Code, Obsidian, Slack). The
 protocol support varies across Mutter releases. Spike 1 produces an
 empirical compatibility matrix for the target machine — see
-`docs/capture-matrix.md`.
+`spikes/spike1_matrix.md` (not yet populated — see ROADMAP.md v0.1.1).
 
 **Workaround:** bind `lexaloud speak-clipboard` to your hotkey instead of
 `lexaloud speak-selection` and use `Ctrl+C` before pressing the hotkey.

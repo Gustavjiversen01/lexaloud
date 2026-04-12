@@ -81,7 +81,7 @@ to use the CUDA backend. See:
 A full list with versions can be regenerated at any time:
 
 ```bash
-env -u PYTHONPATH .venv-spike0/bin/python -m piplicenses \
+python -m piplicenses \
     --from=mixed --with-urls --format=markdown
 ```
 

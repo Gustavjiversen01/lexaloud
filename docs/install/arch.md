@@ -48,6 +48,22 @@ cd lexaloud
 
 See [`ubuntu-debian.md`](ubuntu-debian.md) from step 3 onward.
 
+## 4. Bind a hotkey
+
+See the hotkey guide for your desktop:
+- GNOME: [`../hotkeys/gnome.md`](../hotkeys/gnome.md)
+- KDE Plasma: [`../hotkeys/kde.md`](../hotkeys/kde.md)
+- Sway / Hyprland: [`../hotkeys/sway-hyprland.md`](../hotkeys/sway-hyprland.md)
+- XFCE / Cinnamon: [`../hotkeys/xfce-cinnamon.md`](../hotkeys/xfce-cinnamon.md)
+
+## 5. Troubleshooting
+
+See [`../troubleshooting.md`](../troubleshooting.md). Quick bug report:
+
+```bash
+lexaloud bug-report > /tmp/lexaloud-bug.md
+```
+
 ## Arch-specific notes
 
 - Arch moves quickly. The pinned lockfile was resolved against a

@@ -11,7 +11,7 @@ Bug fixes and small quality-of-life items based on early user feedback.
 - `requirements-lock.*.txt` regenerated with `--generate-hashes` and
   `scripts/install.sh --require-hashes`
 - Spike 1 per-application capture compatibility matrix populated from a
-  real run on the target hardware; committed to `docs/capture-matrix.md`
+  real run on the target hardware; committed to `spikes/spike1_matrix.md`
 - Python 3.13 CI matrix support once `phonemizer-fork` and `pysbd` ship
   compatible wheels
 - Fedora 41 VM smoke test documented + CI job (if feasible)

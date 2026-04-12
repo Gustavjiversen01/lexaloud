@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   configuration, CLI reference, troubleshooting, FAQ, architecture,
   design rationale, model provenance, uninstall, HTTP API reference,
   per-DE hotkey guides.
-- 145 unit tests, passing in under 3 seconds, with no GPU or audio
+- 166 unit tests, passing in under 3 seconds, with no GPU or audio
   device required at test time.
 
 ### Security

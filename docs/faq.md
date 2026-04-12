@@ -38,9 +38,7 @@ v0.2+ roadmap.
 `pip install lexaloud` won't give you a working installation because
 the TTS stack requires a specific `kokoro-onnx` + `onnxruntime-gpu`
 install sequence that can't be expressed in a single `pip install`.
-`scripts/install.sh` is the only supported path for v0.1.x. A PyPI
-namespace placeholder exists to reserve the name; installing it will
-print install instructions and exit.
+`scripts/install.sh` is the only supported install path for v0.1.x.
 
 ## Why no mid-sentence pause?
 
@@ -62,8 +60,8 @@ Three reasons:
    orders-of-magnitude harder.
 3. **Hotkey integration**: GNOME custom shortcuts run a fresh
    subprocess per keystroke. That subprocess exits almost immediately
-   after sending the HTTP request — no audio state lives in the
-   subprocess, only in the daemon.
+   after sending the request to the daemon — no audio state lives in
+   the subprocess, only in the daemon.
 
 ## Will there be a floating overlay?
 

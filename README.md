@@ -1,47 +1,69 @@
 # Lexaloud
 
-> A local, private Linux text-to-speech tool. Select text in any app, press
-> a hotkey, hear it read by Kokoro-82M on your GPU.
+> A local, private text-to-speech tool for Linux. Select text, press a
+> hotkey, hear it read by a neural voice running on your own machine.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![test](https://github.com/Gustavjiversen01/lexaloud/actions/workflows/test.yml/badge.svg)](https://github.com/Gustavjiversen01/lexaloud/actions/workflows/test.yml)
 [![lint](https://github.com/Gustavjiversen01/lexaloud/actions/workflows/lint.yml/badge.svg)](https://github.com/Gustavjiversen01/lexaloud/actions/workflows/lint.yml)
 
-Lexaloud reads academic prose, articles, and PDFs aloud while you follow along
-on screen. It runs locally on your own GPU, uses the open-weights
-[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) neural voice model,
-and sends nothing to the cloud.
+<!-- TODO: replace with a real demo GIF once recorded -->
+<!-- ![demo](docs/demo.gif) -->
+
+## How it works
+
+1. **Select text** in any application
+2. **Press a global hotkey** (e.g., `Ctrl+0`)
+3. **Hear it spoken** sentence by sentence, with pause / skip / rewind controls
+
+Lexaloud runs a small daemon on your machine that synthesizes speech
+using [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an
+open-weights neural voice model. Nothing leaves your computer — no
+cloud API, no account, no telemetry.
+
+To hear what Kokoro sounds like before installing, try the
+[live demo on Hugging Face](https://huggingface.co/spaces/hexgrad/Kokoro-TTS).
 
 ## Features
 
-- **Global hotkey** — bind `lexaloud speak-selection` or `speak-clipboard`
-  to any GNOME Custom Shortcut. One keystroke from selecting text to
-  hearing it.
-- **Local GPU-accelerated neural TTS** — Kokoro-82M via `kokoro-onnx` on
-  `onnxruntime-gpu` with CUDA execution provider. CPU fallback runs at
-  ~10× real-time on modern CPUs, which is fine for reading along.
-- **Sentence-granularity streaming** with bounded ready-queue backpressure
-  and cooperative cancellation. Press a hotkey to pause, skip, rewind,
-  or stop without clipping.
-- **GTK3 tray indicator + control window** — launchable from GNOME
-  Activities; voice/language/speed selection and hotkey remapping.
-- **Privacy-first** — no telemetry, no cloud calls, no account required.
-  See the Privacy section below.
-- **Open-source stack** — MIT-licensed code, open-weights model.
+- **Global hotkey on any desktop** — works on GNOME, KDE Plasma,
+  Sway, Hyprland, XFCE, Cinnamon, and any window manager that
+  supports custom keybindings. GNOME is the primary tested path with
+  integrated tray + hotkey UI; other desktops bind the same CLI
+  commands manually. See [`docs/hotkeys/`](docs/hotkeys/).
+- **GPU-accelerated neural TTS** — Kokoro-82M via `kokoro-onnx` on
+  `onnxruntime-gpu` with NVIDIA CUDA. CPU fallback runs at ~10x
+  real-time, which is fine for reading along.
+- **Sentence-granularity streaming** with bounded backpressure and
+  cooperative cancellation. Pause, skip, rewind, or stop mid-article
+  without audio clipping.
+- **12 built-in voices** — American and British, male and female,
+  from warm to serious. The control window lets you preview and switch
+  voices; see the full list in [`docs/models.md`](docs/models.md).
+- **GTK3 tray indicator + control window** — visible on any desktop
+  that supports AppIndicator (GNOME with the `ubuntu-appindicators`
+  extension, KDE, Budgie, etc.). Voice, speed, and hotkey settings.
+  The CLI works without the tray on minimal setups.
+- **Privacy-first** — see the [Privacy](#privacy) section.
+- **Open-source** — MIT-licensed code, Apache-2.0-licensed model
+  weights. See [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
 
 ## Requirements
 
-- Linux. Tier 1: Ubuntu 24.04 / Debian 13. Tier 2: Fedora 41, Arch,
-  Linux Mint, Pop!_OS (install paths documented but not CI-tested).
-- Python 3.11 or newer
-- ~400 MB disk for model artifacts
-- NVIDIA GPU with CUDA 12-compatible driver (optional; CPU fallback
-  works and is fine for reading-along speed)
-- GNOME for the integrated hotkey + tray experience. Other desktops
-  work via manual hotkey binding — see `docs/hotkeys/`.
+| Requirement | Details |
+|-------------|---------|
+| **OS** | Linux only. Tier 1: Ubuntu 24.04, Debian 13. Tier 2: Fedora 41, Arch, Mint, Pop!_OS. Not supported: Windows, macOS. |
+| **Init system** | systemd (for the `--user` daemon unit). Non-systemd distros (Artix, Void) can run `lexaloud daemon` manually. |
+| **Python** | 3.11 or newer |
+| **GPU (optional)** | NVIDIA with CUDA 12-compatible driver. AMD ROCm and Intel Arc are **not supported** in v0.1.0 — the daemon falls back to CPU, which runs at ~10x real-time and is fine for reading along. |
+| **Audio** | PipeWire, PulseAudio, or bare ALSA (via PortAudio/`libportaudio2`). Most desktop Linux distros ship PipeWire by default. |
+| **Disk** | ~400 MB for model weights (downloaded once on first setup) |
+| **Desktop (optional)** | GNOME for the integrated tray + hotkey UI. KDE, Sway, XFCE, Cinnamon, and others work via manual hotkey binding — see [`docs/hotkeys/`](docs/hotkeys/). The CLI works headless. |
 
-## Quick start (Ubuntu / Debian)
+## Install
+
+### Ubuntu / Debian (Tier 1)
 
 ```bash
 sudo apt install python3-venv wl-clipboard xclip libportaudio2 libnotify-bin \
@@ -52,208 +74,197 @@ cd lexaloud
 ./scripts/install.sh
 
 ~/.local/share/lexaloud/venv/bin/lexaloud setup
-
 systemctl --user daemon-reload
 systemctl --user enable --now lexaloud.service
 ```
 
-Then bind `~/.local/share/lexaloud/venv/bin/lexaloud speak-selection` to a
-GNOME Custom Shortcut (Settings → Keyboard → View and Customize Shortcuts
-→ Custom Shortcuts → +). The `lexaloud setup` command prints the exact
-binary path for your install and a full walkthrough.
+Then bind a hotkey — see [`docs/hotkeys/gnome.md`](docs/hotkeys/gnome.md)
+or the walkthrough `lexaloud setup` prints.
 
-Full walkthrough: [`docs/install/ubuntu-debian.md`](docs/install/ubuntu-debian.md).
+Full walkthrough: [`docs/install/ubuntu-debian.md`](docs/install/ubuntu-debian.md)
+
+### Fedora (Tier 2)
+
+```bash
+sudo dnf install python3 python3-pip python3-gobject gtk3 \
+                 wl-clipboard xclip portaudio libnotify
+```
+
+Then the same `git clone` → `./scripts/install.sh` → `lexaloud setup` →
+`systemctl` flow. Full walkthrough:
+[`docs/install/fedora.md`](docs/install/fedora.md)
+
+### Arch / Manjaro (Tier 2)
+
+```bash
+sudo pacman -S python python-gobject gtk3 wl-clipboard xclip portaudio libnotify
+```
+
+Then `git clone` → `./scripts/install.sh` → `lexaloud setup` → `systemctl`.
+Full walkthrough: [`docs/install/arch.md`](docs/install/arch.md)
 
 ### Other distros
 
-- Fedora: [`docs/install/fedora.md`](docs/install/fedora.md)
-- Arch: [`docs/install/arch.md`](docs/install/arch.md)
-- Anything else: file a PR against `docs/install/` — the differences are
-  mostly package names.
+The installer auto-detects your distro via `/etc/os-release` and prints
+the right package names if any are missing. For distros not in the table,
+file a PR against [`docs/install/`](docs/install/).
+
+### GPU backend
+
+The installer detects NVIDIA via `nvidia-smi` and picks the right
+lockfile automatically. To force a backend:
+
+```bash
+./scripts/install.sh --backend cuda12   # NVIDIA GPU
+./scripts/install.sh --backend cpu      # CPU only (AMD, Intel, or no GPU)
+```
+
+### Wayland users: read this
+
+On GNOME Wayland (the default on Ubuntu 24.04), `speak-selection` may
+return empty for some apps (VS Code, Obsidian, Slack) because Electron
+apps don't always publish to the PRIMARY selection. The reliable
+workflow is:
+
+1. **Ctrl+C** to copy the selection to the clipboard
+2. Press your **`speak-clipboard` hotkey**
+
+Both commands are in the CLI — bind whichever suits your workflow, or
+bind both to different keys. Details in
+[`docs/gotchas.md`](docs/gotchas.md).
 
 ### Not via `pip install`
 
-`pip install lexaloud` will NOT give you a working installation. The
-runtime stack requires a specific `kokoro-onnx` + `onnxruntime-gpu`
-install sequence (documented in `spikes/spike0_results.md`) that can't be
-expressed in a single `pip install` command. `scripts/install.sh` is the
-only supported install path for v0.1.x. A PyPI namespace placeholder
-exists to reserve the name; installing it will print install instructions
-and exit.
+`pip install lexaloud` does **not** give you a working installation.
+The TTS runtime requires a specific install sequence for `kokoro-onnx`
++ `onnxruntime-gpu` that `pip` cannot express in one command (the two
+packages share an internal directory and silently break each other if
+both are installed normally — see
+[`docs/design-rationale.md`](docs/design-rationale.md) for the full
+story). `scripts/install.sh` is the only supported install path for
+v0.1.x.
 
 ## CLI
 
 ```
-lexaloud speak-selection      # capture PRIMARY selection, POST to daemon
-lexaloud speak-clipboard      # capture CLIPBOARD (after Ctrl+C), POST to daemon
-lexaloud pause
+lexaloud speak-selection      # capture PRIMARY selection, speak it
+lexaloud speak-clipboard      # capture CLIPBOARD (after Ctrl+C), speak it
+lexaloud pause                # pause at the next sentence boundary
 lexaloud resume
 lexaloud toggle               # pause if speaking, resume if paused
 lexaloud skip                 # skip the current sentence
 lexaloud back                 # rewind one sentence
-lexaloud stop
+lexaloud stop                 # stop and clear the queue
 lexaloud status               # daemon state as JSON
-lexaloud download-models      # idempotent artifact fetch
+lexaloud download-models      # fetch model weights (~340 MB, once)
 lexaloud setup                # first-time configuration walkthrough
-lexaloud bug-report           # collect system info for a bug report
-lexaloud daemon               # run the FastAPI daemon (usually via systemd)
+lexaloud bug-report           # system diagnostics for filing issues
+lexaloud daemon               # run the daemon (normally via systemd)
 ```
 
-Exit codes:
+Exit codes: 0 success, 1 error, 2 empty selection, 3 daemon down,
+4 oversized payload, 5 capture tool missing/timeout.
 
-| Code | Meaning                                        |
-|------|------------------------------------------------|
-| 0    | success                                        |
-| 1    | generic error                                  |
-| 2    | empty selection / clipboard                    |
-| 3    | daemon not running                             |
-| 4    | oversized payload rejected by daemon           |
-| 5    | capture tool missing or subprocess timed out   |
-
-Full reference: [`docs/cli-reference.md`](docs/cli-reference.md).
-
-## Why a hotkey, not a right-click menu?
-
-Linux has no system-level context-menu API. Unlike Windows shell extensions
-or macOS Services, there is no hook to add a "Lexaloud" item to every
-application's right-click menu. The industry-standard replacement — and
-what every similar Linux tool uses — is a global keyboard shortcut.
-
-See [`docs/gotchas.md`](docs/gotchas.md) for the details and workarounds.
+Full reference: [`docs/cli-reference.md`](docs/cli-reference.md)
 
 ## Privacy
 
 **Lexaloud performs no telemetry.** No text, metadata, or usage
-statistics are transmitted anywhere. The only outbound network calls are
-the one-time model downloads on first setup, fetched over HTTPS from the
-[`kokoro-onnx`](https://github.com/thewh1teagle/kokoro-onnx) GitHub
-releases page and SHA256-verified against pins in
+statistics are transmitted anywhere. The only outbound network calls
+are the one-time model downloads on first setup, fetched over HTTPS
+from the [`kokoro-onnx`](https://github.com/thewh1teagle/kokoro-onnx)
+GitHub releases page and SHA256-verified against pins in
 [`src/lexaloud/models.py`](src/lexaloud/models.py).
 
-The daemon listens on a Unix domain socket at
-`$XDG_RUNTIME_DIR/lexaloud/lexaloud.sock` with mode 0700 (enforced by
+The daemon listens on a **Unix domain socket** at
+`$XDG_RUNTIME_DIR/lexaloud/lexaloud.sock` (mode 0700 enforced by
 systemd's `RuntimeDirectoryMode=`). Only processes running as your user
-can reach it.
+can reach it. There is no open TCP port.
 
-Selection text passed through the daemon is never written to disk and
-never logged at any level higher than DEBUG. Log-level entries that
-mention a sentence replace the content with a SHA-1 fingerprint and a
-length so that `journalctl --user -u lexaloud.service` never contains
-readable user text. See [`docs/troubleshooting.md`](docs/troubleshooting.md).
+Selection text is never written to disk. Log entries that mention a
+sentence replace the content with a SHA-1 fingerprint + length, so
+`journalctl` never contains readable user text.
 
-## Repository layout
+## Known limitations (v0.1.0)
 
-```
-src/lexaloud/         # the package
-  cli.py              # argparse entry point + subcommand wiring
-  daemon.py           # FastAPI app + uvicorn on Unix socket
-  player.py           # job lifecycle, ready queue, pause/skip/back
-  providers/          # SpeechProvider protocol + Kokoro + FakeProvider
-  audio.py            # AudioSink / SoundDeviceSink / WavSink / NullSink
-  preprocessor/       # PDF cleanup, segmentation, abbreviations, citations
-  selection.py        # PRIMARY and CLIPBOARD capture with timeouts
-  session.py          # XDG_SESSION_TYPE detection
-  config.py           # ~/.config/lexaloud/config.toml loader
-  models.py           # SHA256-pinned download + ORT environment guard
-  setup.py            # `lexaloud setup` implementation
-  platform.py         # distro / desktop / GPU detection helpers
-  indicator.py        # GNOME tray indicator
-  gui_control.py      # GTK3 control window
-  bug_report.py       # `lexaloud bug-report` implementation
-  templates/          # systemd unit + .desktop + config example templates
+- **NVIDIA only for GPU acceleration** — AMD ROCm and Intel Arc are
+  not supported. CPU fallback works on any x86_64 Linux.
+- **No floating overlay UI** — planned for v0.2.
+- **No karaoke word-level highlighting** — deferred (Kokoro doesn't
+  expose word timings).
+- **No browser extension** — deferred.
+- **Sentence-level pause granularity** — the last ~100 ms of the
+  current sub-chunk may play out after pressing pause.
+- **GNOME Wayland primary-selection gaps** — some Electron apps don't
+  publish to PRIMARY. Workaround: use `speak-clipboard` + Ctrl+C.
+  See [`docs/gotchas.md`](docs/gotchas.md).
 
-scripts/install.sh    # Phase A bootstrap (venv + pip install + smoke)
-requirements-lock.*.txt  # pinned runtime (cuda12 and cpu variants)
-spikes/               # Spike 0 (Kokoro) + Spike 1 (selection capture)
-docs/                 # install guides, architecture, API, hotkeys, etc.
-tests/                # 145 passing tests, no GPU or audio device required
-```
+Full list: [`ROADMAP.md`](ROADMAP.md)
+
+## Architecture
+
+A FastAPI daemon (systemd `--user`) owns the TTS provider and audio
+sink. A thin CLI sends HTTP requests over the Unix socket. A GTK3
+tray indicator polls daemon state for visual feedback.
+
+Component diagram + data-flow walkthrough:
+[`docs/architecture.md`](docs/architecture.md). Design decisions:
+[`docs/design-rationale.md`](docs/design-rationale.md).
 
 ## Tests
 
 ```bash
-env -u PYTHONPATH .venv-spike0/bin/python -m pytest tests/ \
-    --ignore=tests/test_real_kokoro_smoke.py -q
+# Set up a dev environment (one-time)
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .[test]
+
+# Run the suite
+python -m pytest tests/ --ignore=tests/test_real_kokoro_smoke.py -q
 ```
 
-145 tests run in ~2 seconds. None require the GPU or an audio device.
+166 tests, ~2.5 seconds. No GPU or audio device required — tests use
+`FakeProvider` + `NullSink` + `ASGITransport`.
 
-The daemon smoke tests use `httpx.AsyncClient` + `ASGITransport` driving
-FastAPI's lifespan manually instead of `fastapi.testclient.TestClient`.
-TestClient relies on anyio's portal to bridge sync test code into the
-ASGI app on a worker thread; we observed it hang in this lockfile's
-combination of `fastapi==0.135.3 / starlette==1.0.0 / anyio==4.13.0`,
-and the async approach is closer to how the app actually runs.
-
-The optional real-Kokoro smoke test uses the real model and the real
-`sounddevice` stack (1 extra test, brings the total to 146):
+There is also an optional integration test that uses the real Kokoro
+model and `sounddevice` (1 extra test, 167 total):
 
 ```bash
-LEXALOUD_REAL_TTS=1 .venv-spike0/bin/python -m pytest tests/test_real_kokoro_smoke.py -s
+LEXALOUD_REAL_TTS=1 python -m pytest tests/test_real_kokoro_smoke.py -s
 ```
-
-## Architecture
-
-The design philosophy and key decisions (why a FastAPI daemon, why
-sentence-granularity streaming, why `onnxruntime-gpu` with CUDA EP, why
-the ONNX Runtime coexistence landmine matters) are documented in
-[`docs/design-rationale.md`](docs/design-rationale.md). For a higher-level
-component diagram, see [`docs/architecture.md`](docs/architecture.md).
-
-## Known limitations (v0.1.0)
-
-- **No floating overlay UI** — the current CLI + tray is the extent of
-  the visual feedback. A floating caption overlay is planned for v0.2.
-- **No karaoke word-level highlighting** — Kokoro's core API doesn't
-  expose word timings; wiring a forced aligner is deferred.
-- **No browser extension.** Deferred.
-- **No LLM text normalization** — acronyms and equations may be
-  mis-pronounced. Use the `speak-clipboard` + Ctrl+C workflow and edit
-  the text before copying if needed.
-- **Sentence-level pause** — the last ~100 ms of the current sentence
-  may play out of the OS audio buffer after pressing `pause`.
-- **GNOME Wayland primary-selection coverage depends on the app.**
-  Some Electron apps (VS Code, Obsidian, Slack) don't publish to the
-  PRIMARY selection. Workaround: use `speak-clipboard` + Ctrl+C. See
-  [`docs/gotchas.md`](docs/gotchas.md).
-
-Full list and v0.2+ roadmap: [`ROADMAP.md`](ROADMAP.md).
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). Pull requests should be signed
-off with `git commit -s` (DCO).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). Pull requests should be
+signed off with `git commit -s` (DCO).
 
 Please read [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) before
 participating.
 
-Security vulnerabilities: please use
+Security vulnerabilities: use
 [GitHub private vulnerability reporting](https://github.com/Gustavjiversen01/lexaloud/security/advisories/new)
 rather than public issues. See [`SECURITY.md`](SECURITY.md).
 
 ## Acknowledgments
 
-- **[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)** by hexgrad —
-  the open-weights neural TTS model that makes this project practical.
+- **[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)** by
+  hexgrad — the open-weights neural TTS model.
 - **[`kokoro-onnx`](https://github.com/thewh1teagle/kokoro-onnx)** by
-  thewh1teagle — the ONNX wrapper and build pipeline.
-- **[ONNX Runtime](https://onnxruntime.ai/)** and the NVIDIA CUDA team
-  for making CUDA-accelerated inference accessible from Python.
+  thewh1teagle — the ONNX wrapper.
+- **[ONNX Runtime](https://onnxruntime.ai/)** + NVIDIA CUDA for
+  GPU-accelerated inference from Python.
 - **[`phonemizer-fork`](https://github.com/kokoro-tts/phonemizer-fork)**,
   **[pysbd](https://github.com/nipunsadvilkar/pySBD)**, and
-  **[`sounddevice`](https://python-sounddevice.readthedocs.io/)** — the
-  quiet heroes of this dependency tree.
-- **The GNOME and freedesktop.org communities** for the GTK, libnotify,
-  systemd-user, and AppIndicator infrastructure that wire everything
-  together.
+  **[`sounddevice`](https://python-sounddevice.readthedocs.io/)**.
+- The **GNOME** and **freedesktop.org** communities for GTK, libnotify,
+  systemd-user, and AppIndicator.
 
-Significant portions of this codebase were developed in collaboration with
-[Claude](https://claude.ai) (Anthropic), primarily via Claude Code. Code
+Significant portions of this codebase were developed in collaboration
+with [Claude](https://claude.ai) (Anthropic) via Claude Code. Code
 review and final editorial decisions are the author's.
 
 ## License
 
 MIT. See [`LICENSE`](LICENSE) for the full text and
-[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) for the runtime
-dependency disclosures (notably: the TTS stack pulls in a GPL-3.0 dynamic
-dependency chain via `phonemizer-fork` → `espeakng-loader` → `espeak-ng`).
+[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) for runtime
+dependency disclosures (the TTS stack includes GPL-3.0 dynamic
+dependencies via `phonemizer-fork` → `espeakng-loader` → `espeak-ng`).
