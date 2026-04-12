@@ -25,14 +25,14 @@ log = logging.getLogger(__name__)
 
 # Reuse the same system-site-packages prepend trick as the indicator.
 try:
-    import gi  # type: ignore
+    import gi
 except ImportError:
     from .platform import system_site_packages_candidates
 
     for _candidate in system_site_packages_candidates():
         sys.path.append(str(_candidate))
         try:
-            import gi  # type: ignore  # noqa: F811
+            import gi  # noqa: F811
 
             break
         except ImportError:
@@ -42,7 +42,7 @@ except ImportError:
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, Gtk  # type: ignore  # noqa: E402
+from gi.repository import Gdk, Gtk  # noqa: E402
 
 # --- curated Kokoro voice list (v1.0 voices pack) -----------------------
 #

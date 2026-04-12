@@ -201,7 +201,7 @@ def assert_onnxruntime_environment() -> str:
     # This catches the post-`pip uninstall onnxruntime` corruption Spike 0
     # flagged, where dist-info survives but the shared directory is broken.
     try:
-        import onnxruntime as ort  # type: ignore
+        import onnxruntime as ort
 
         _ = ort.__version__
         _ = ort.get_available_providers()

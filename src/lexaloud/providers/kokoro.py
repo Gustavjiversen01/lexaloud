@@ -102,7 +102,7 @@ class KokoroProvider:
         will still catch the CPU fallback and log loudly.
         """
         try:
-            import onnxruntime as ort  # type: ignore
+            import onnxruntime as ort
         except Exception as e:  # noqa: BLE001
             log.error("onnxruntime import failed: %s", e)
             raise
@@ -117,7 +117,7 @@ class KokoroProvider:
             log.warning("ort.preload_dlls raised (continuing): %s", e)
 
     def _build_session(self) -> tuple[Any, list[str]]:
-        import onnxruntime as ort  # type: ignore
+        import onnxruntime as ort
 
         # Suppress C++ stderr warnings at session load. ORT emits two
         # warnings on Kokoro load ("39 Memcpy nodes added",

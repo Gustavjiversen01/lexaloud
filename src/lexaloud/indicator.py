@@ -26,14 +26,14 @@ log = logging.getLogger(__name__)
 # --- make the system-level gi module importable from inside the venv ------
 
 try:
-    import gi  # type: ignore
+    import gi
 except ImportError:
     from .platform import system_site_packages_candidates
 
     for _candidate in system_site_packages_candidates():
         sys.path.append(str(_candidate))
         try:
-            import gi  # type: ignore  # noqa: F811
+            import gi  # noqa: F811
 
             break
         except ImportError:
@@ -62,8 +62,8 @@ except ValueError as e:
     )
     raise SystemExit(2) from e
 
-from gi.repository import AyatanaAppIndicator3 as AppIndicator3  # type: ignore  # noqa: E402
-from gi.repository import GLib, Gtk  # type: ignore  # noqa: E402
+from gi.repository import AyatanaAppIndicator3 as AppIndicator3  # noqa: E402
+from gi.repository import GLib, Gtk  # noqa: E402
 
 # --- paths ----------------------------------------------------------------
 
