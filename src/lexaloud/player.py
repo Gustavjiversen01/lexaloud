@@ -482,10 +482,17 @@ class Player:
         # None (or raise cancelled) after their executor result comes back.
         self._current_job_id += 1
         await self._cancel_tasks()
-        try:
-            await self._sink.stop()
-        except Exception as e:  # noqa: BLE001
-            log.warning("sink.stop failed: %s", e)
+        # Only abort the audio stream if we were actually playing or paused.
+        # When the player is idle (e.g., transitioning from idle → speaking
+        # in a fresh /speak), the stream may be pre-warmed from the daemon
+        # startup sink warmup. Aborting it here would kill the warm stream
+        # and force a cold restart, reintroducing the first-use audio
+        # clipping bug.
+        if self._state in ("speaking", "paused"):
+            try:
+                await self._sink.stop()
+            except Exception as e:  # noqa: BLE001
+                log.warning("sink.stop failed: %s", e)
         self._drain_ready_queue()
         self._in_flight.clear()
         self._pending.clear()

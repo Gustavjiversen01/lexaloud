@@ -271,7 +271,11 @@ def run() -> None:
     import uvicorn
 
     _ = load_config()  # load_config still parses config.toml for side effects
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    # Force INFO level on the root logger. cli.main() calls basicConfig(WARNING)
+    # before cmd_daemon, and basicConfig is a no-op if handlers already exist.
+    # We must override the level explicitly so daemon log messages are visible.
+    logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    logging.getLogger().setLevel(logging.INFO)
 
     sock = socket_path()
     parent = sock.parent

@@ -245,14 +245,21 @@ class SoundDeviceSink:
         """Pre-open the stream during daemon startup to warm PipeWire's
         resampler. Runs _open_stream in an executor so the blocking
         PortAudio calls + 2s silence write don't stall the event loop."""
+        log.info("sink warmup: opening stream (sr=%d, ch=%d, prime=%.1fs)", sample_rate, channels, self.COLD_PRIME_SECONDS)
         async with self._lock:
             if self._stream is not None:
+                log.info("sink warmup: stream already open, skipping")
                 return  # already warm
             loop = asyncio.get_running_loop()
             try:
                 await loop.run_in_executor(None, self._open_stream, sample_rate, channels)
+                log.info(
+                    "sink warmup: complete, stream active=%s latency=%.1fms",
+                    self._stream.active if self._stream else "None",
+                    float(self._stream.latency) * 1000 if self._stream else 0,
+                )
             except Exception as e:
-                log.error("SoundDeviceSink warmup failed: %s", e)
+                log.error("sink warmup failed: %s", e)
                 self._stream = None
                 raise
 
