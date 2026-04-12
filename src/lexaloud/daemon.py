@@ -137,6 +137,15 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
                 await comps.provider.warmup()
             except Exception as e:  # noqa: BLE001
                 log.error("background warmup failed: %s", e)
+            # Sink warmup: pre-open the audio stream so PipeWire's
+            # 24000→44100 Hz resampler is initialized before the user's
+            # first hotkey press. Best-effort — the daemon works without
+            # it (begin_stream cold-opens lazily), but the first sentence
+            # would clip without the warm stream.
+            try:
+                await comps.sink.warmup(24000, 1)
+            except Exception as e:  # noqa: BLE001
+                log.warning("sink warmup failed (audio device may be unavailable): %s", e)
             finally:
                 comps.player.set_warming(False)
 

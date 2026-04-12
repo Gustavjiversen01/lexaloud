@@ -26,16 +26,11 @@ from lexaloud.providers.base import AudioChunk
 # ---------------------------------------------------------------------
 
 
-async def test_sounddevice_sink_primes_stream_with_silence_on_open():
-    """The first stream.write() that sounddevice sees MUST be a block of
-    silence, not the real audio. This absorbs the PulseAudio/PipeWire
-    stream setup latency that clips the first few tens of ms.
-    """
+async def test_sounddevice_sink_primes_stream_with_silence_on_cold_open():
+    """Cold-open writes COLD_PRIME_SECONDS of silence to absorb
+    PipeWire's resampler initialization (24000→44100 Hz)."""
     fake_stream = MagicMock()
-    # Mock stream.latency / blocksize explicitly — otherwise MagicMock
-    # returns other MagicMocks that float()/int() coerce to 1.0/1,
-    # which would bloat the prime to 1.05 seconds of silence.
-    fake_stream.latency = 0.05  # 50 ms — typical low-latency value
+    fake_stream.latency = 0.05
     fake_stream.blocksize = 1024
 
     class _FakeSd:
@@ -45,8 +40,6 @@ async def test_sounddevice_sink_primes_stream_with_silence_on_open():
     with patch.dict("sys.modules", {"sounddevice": _FakeSd()}):
         await sink.begin_stream(24000, 1)
 
-    # sd.OutputStream was called with the expected kwargs including the
-    # new latency and blocksize hints from the audio-pipeline review.
     _FakeSd.OutputStream.assert_called_once_with(
         samplerate=24000,
         channels=1,
@@ -54,40 +47,59 @@ async def test_sounddevice_sink_primes_stream_with_silence_on_open():
         latency="low",
         blocksize=1024,
     )
-    # start() was called.
-    assert fake_stream.start.called, "stream.start() was not called"
-    # The FIRST write call must be the silence prime.
+    assert fake_stream.start.called
     first_write = fake_stream.write.call_args_list[0]
     samples_written = first_write.args[0]
-    # prime_seconds = max(0.1, 0.05 + 0.05) = 0.1 → 2400 samples.
-    expected_prime = int(0.1 * 24000)
+    expected_prime = int(SoundDeviceSink.COLD_PRIME_SECONDS * 24000)
     assert samples_written.shape == (expected_prime, 1), (
-        f"prime shape should be ({expected_prime}, 1), got {samples_written.shape}"
+        f"cold prime should be ({expected_prime}, 1), got {samples_written.shape}"
     )
-    assert np.all(samples_written == 0), "prime block must be silent"
+    assert np.all(samples_written == 0)
     assert samples_written.dtype == np.float32
 
 
-async def test_sounddevice_sink_prime_scales_with_stream_latency():
-    """If PortAudio reports a higher latency than our 100 ms floor, the
-    prime grows to cover it (with a 50 ms safety margin). This matters
-    for Bluetooth headsets where the default latency can be 150+ ms."""
+async def test_sounddevice_sink_warm_restart_uses_short_prime():
+    """After stop() (abort-only) + begin_stream(), the stream is
+    restarted with WARM_PRIME_SECONDS of silence (not the full cold
+    prime), and a new OutputStream is NOT created."""
     fake_stream = MagicMock()
-    fake_stream.latency = 0.2  # 200 ms — e.g., a Bluetooth headset
+    fake_stream.latency = 0.05
     fake_stream.blocksize = 1024
+    fake_stream.stopped = False  # active initially
+    fake_stream.active = True
 
     class _FakeSd:
         OutputStream = MagicMock(return_value=fake_stream)
 
     sink = SoundDeviceSink()
     with patch.dict("sys.modules", {"sounddevice": _FakeSd()}):
-        await sink.begin_stream(24000, 1)
+        await sink.begin_stream(24000, 1)  # cold open
 
-    first_write = fake_stream.write.call_args_list[0]
-    samples_written = first_write.args[0]
-    # max(0.1, 0.2 + 0.05) = 0.25 seconds → 6000 samples.
-    expected_prime = int(0.25 * 24000)
-    assert samples_written.shape == (expected_prime, 1)
+    # Now stop() — should abort but keep stream alive
+    await sink.stop()
+    fake_stream.abort.assert_called_once()
+    assert sink._stream is not None, "stop() should keep stream alive"
+
+    # Mark stream as stopped (simulating post-abort state)
+    fake_stream.stopped = True
+    fake_stream.active = False
+    fake_stream.start.reset_mock()
+    fake_stream.write.reset_mock()
+
+    # begin_stream again — should restart, not cold-open
+    await sink.begin_stream(24000, 1)
+
+    # OutputStream should NOT have been called a second time
+    assert _FakeSd.OutputStream.call_count == 1, "should reuse existing stream, not open new"
+    # stream.start() should have been called for the restart
+    fake_stream.start.assert_called_once()
+    # The warm prime should be WARM_PRIME_SECONDS, not COLD_PRIME_SECONDS
+    if fake_stream.write.call_args_list:
+        warm_prime = fake_stream.write.call_args_list[0].args[0]
+        expected_warm = int(SoundDeviceSink.WARM_PRIME_SECONDS * 24000)
+        assert warm_prime.shape == (expected_warm, 1), (
+            f"warm prime should be ({expected_warm}, 1), got {warm_prime.shape}"
+        )
 
 
 async def test_sounddevice_sink_continues_after_prime_failure():
