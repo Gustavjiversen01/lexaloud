@@ -68,7 +68,7 @@ To hear what Kokoro sounds like before installing, try the
 | **OS** | Linux only. Tier 1: Ubuntu 24.04, Debian 13. Tier 2: Fedora 41, Arch, Mint, Pop!_OS. Not supported: Windows, macOS. |
 | **Init system** | systemd (for the `--user` daemon unit). Non-systemd distros (Artix, Void) can run `lexaloud daemon` manually. |
 | **Python** | 3.11 or newer |
-| **GPU (optional)** | NVIDIA with CUDA 12-compatible driver. AMD ROCm and Intel Arc are **not supported** in v0.1.0 — the daemon falls back to CPU, which runs at ~10x real-time and is fine for reading along. |
+| **GPU (optional)** | NVIDIA with CUDA 12-compatible driver. AMD ROCm and Intel Arc are **not yet supported** — the daemon falls back to CPU, which runs at ~10x real-time and is fine for reading along. |
 | **Audio** | PipeWire, PulseAudio, or bare ALSA (via PortAudio/`libportaudio2`). Most desktop Linux distros ship PipeWire by default. |
 | **Disk** | ~400 MB for model weights (downloaded once on first setup) |
 | **Desktop (optional)** | GNOME for the integrated tray + hotkey UI. KDE, Sway, XFCE, Cinnamon, and others work via manual hotkey binding — see [`docs/hotkeys/`](docs/hotkeys/). The CLI works headless. |
@@ -153,8 +153,7 @@ The TTS runtime requires a specific install sequence for `kokoro-onnx`
 packages share an internal directory and silently break each other if
 both are installed normally — see
 [`docs/design-rationale.md`](docs/design-rationale.md) for the full
-story). `scripts/install.sh` is the only supported install path for
-v0.1.x.
+story). `scripts/install.sh` is the only supported install path.
 
 ## CLI
 

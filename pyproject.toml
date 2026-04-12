@@ -129,7 +129,7 @@ ignore = [
 # flake8-simplify (SIM) is deliberately NOT selected in v0.1.0: it catches
 # style-level things like "merge nested with statements" and
 # "contextlib.suppress instead of try/except/pass". Both are reasonable
-# but touch dozens of sites across the repo; tightening is a v0.2 task.
+# but touch dozens of sites across the repo; tightening is a v0.3 task.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["B018"]  # useless expression is fine in tests

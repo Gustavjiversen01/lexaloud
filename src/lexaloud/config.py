@@ -68,7 +68,7 @@ class DaemonConfig:
     # host/port are deprecated in v0.1.0. The daemon binds a Unix domain
     # socket at $XDG_RUNTIME_DIR/lexaloud/lexaloud.sock; these fields are
     # kept only for forward compatibility with older config files and are
-    # ignored at runtime. Will be removed in v0.2.
+    # ignored at runtime. Will be removed in v0.3.
     host: str = "127.0.0.1"
     port: int = 5487
     # Bounded ready-queue depth (number of completed sentence chunks between

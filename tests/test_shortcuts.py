@@ -12,6 +12,10 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+dbus_fast = pytest.importorskip("dbus_fast", reason="dbus-fast not installed")
+
 from lexaloud.config import Config
 from lexaloud.player import Player
 from lexaloud.preprocessor import PreprocessorConfig

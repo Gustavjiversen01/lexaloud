@@ -25,8 +25,8 @@ systemctl --user restart lexaloud.service
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `host` | `"127.0.0.1"` | **Deprecated in v0.1.0.** The daemon now binds a Unix domain socket at `$XDG_RUNTIME_DIR/lexaloud/lexaloud.sock`. This field is kept for forward compat with older configs and is ignored at runtime. |
-| `port` | `5487` | **Deprecated in v0.1.0.** Same as `host`. Will be removed in v0.2. |
+| `host` | `"127.0.0.1"` | **Deprecated.** The daemon binds a Unix domain socket at `$XDG_RUNTIME_DIR/lexaloud/lexaloud.sock`. Kept for forward compat; ignored at runtime. Will be removed in v0.3. |
+| `port` | `5487` | **Deprecated.** Same as `host`. Will be removed in v0.3. |
 | `ready_queue_depth` | `3` | Max completed sentence chunks buffered between the provider and the audio sink. Bounds memory during pause or slow playback. Increase to 5-10 if you hear audible gaps between sentences on a slower CPU. |
 
 ### `[provider]`

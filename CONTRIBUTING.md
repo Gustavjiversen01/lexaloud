@@ -29,7 +29,7 @@ env -u PYTHONPATH .venv-dev/bin/python -m pytest tests/ \
     --ignore=tests/test_real_kokoro_smoke.py -q
 ```
 
-Target: 166 tests passing, under 3 seconds. No GPU or audio device needed
+Target: 206 tests passing, under 3 seconds. No GPU or audio device needed
 (tests use `FakeProvider` + `NullSink` + `ASGITransport`).
 
 For a full end-to-end test with the real Kokoro model and real
@@ -73,7 +73,6 @@ LEXALOUD_REAL_TTS=1 .venv-dev/bin/python -m pytest tests/test_real_kokoro_smoke.
 The following are explicitly deferred per the `ROADMAP.md` — if you want
 to contribute one of these, please open a discussion first:
 
-- Floating overlay UI, MPRIS2, XDG GlobalShortcuts portal
 - Karaoke word-level highlighting
 - Browser extension
 - LLM-based text normalization

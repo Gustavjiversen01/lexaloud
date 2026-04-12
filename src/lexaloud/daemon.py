@@ -70,6 +70,7 @@ class StateResponse(BaseModel):
     ready_count: int
     provider_name: str
     session_providers: list[str]
+    last_error: str | None = None
 
 
 # ---------- daemon wiring ----------

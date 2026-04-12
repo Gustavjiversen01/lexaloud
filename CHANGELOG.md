@@ -99,5 +99,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `XDG_CONFIG_HOME` path is `.resolve()`'d to prevent traversal via
   malicious environment.
 
-[Unreleased]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/Gustavjiversen01/lexaloud/releases/tag/v0.1.0
