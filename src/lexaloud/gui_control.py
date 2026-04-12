@@ -484,6 +484,20 @@ class ControlWindow(Gtk.Window):
             keys_grid.attach(current_lbl, 1, row, 1, 1)
             keys_grid.attach(change_btn, 2, row, 1, 1)
 
+        # Advanced section
+        advanced_frame = Gtk.Frame(label="Advanced")
+        advanced_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        advanced_box.set_border_width(12)
+        advanced_frame.add(advanced_box)
+        outer.pack_start(advanced_frame, False, False, 0)
+
+        self.overlay_toggle = Gtk.CheckButton(label="Show floating overlay when speaking")
+        self.overlay_toggle.set_tooltip_text(
+            "Displays a small translucent bar at the bottom of the screen "
+            "showing the current sentence with pause/skip/stop buttons."
+        )
+        advanced_box.pack_start(self.overlay_toggle, False, False, 0)
+
         # Buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         button_box.set_halign(Gtk.Align.END)
@@ -538,6 +552,10 @@ class ControlWindow(Gtk.Window):
         # Priming the hint label (the value-changed signal also fires).
         self._on_speed_changed(self.speed_adjustment)
 
+        # Advanced settings
+        advanced = cfg.get("advanced", {}) if isinstance(cfg, dict) else {}
+        self.overlay_toggle.set_active(bool(advanced.get("overlay", False)))
+
     def _on_speed_changed(self, adjustment) -> None:
         v = adjustment.get_value()
         if 0.85 <= v <= 1.3:
@@ -582,6 +600,9 @@ class ControlWindow(Gtk.Window):
         provider["voice"] = voice
         provider["lang"] = lang
         provider["speed"] = speed
+        # Advanced settings
+        advanced = cfg.setdefault("advanced", {})
+        advanced["overlay"] = self.overlay_toggle.get_active()
         try:
             _save_config_dict(cfg)
         except Exception as e:  # noqa: BLE001
