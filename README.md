@@ -32,6 +32,18 @@ To hear what Kokoro sounds like before installing, try the
   supports custom keybindings. GNOME is the primary tested path with
   integrated tray + hotkey UI; other desktops bind the same CLI
   commands manually. See [`docs/hotkeys/`](docs/hotkeys/).
+- **MPRIS2 / media keys** — desktop media keys, GNOME's top-bar
+  media indicator, KDE's media widget, Bluetooth headphone buttons,
+  and `playerctl` all control Lexaloud playback with zero
+  configuration. Uses `dbus-fast` (optional dependency).
+- **Floating overlay** — an always-on-top sentence caption bar (off
+  by default). Enable via `[advanced] overlay = true` in
+  `config.toml` or the control window's Settings tab. Supports both
+  `gtk-layer-shell` (wlroots/KWin) and X11/GNOME Wayland fallback.
+- **XDG GlobalShortcuts portal** — Wayland-native global hotkey
+  binding on KDE Plasma 6+, Sway, and Hyprland via the
+  `org.freedesktop.portal.GlobalShortcuts` portal. GNOME does not
+  support this portal and continues using the gsettings path.
 - **GPU-accelerated neural TTS** — Kokoro-82M via `kokoro-onnx` on
   `onnxruntime-gpu` with NVIDIA CUDA. CPU fallback runs at ~10x
   real-time, which is fine for reading along.
@@ -185,11 +197,10 @@ Selection text is never written to disk. Log entries that mention a
 sentence replace the content with a SHA-1 fingerprint + length, so
 `journalctl` never contains readable user text.
 
-## Known limitations (v0.1.0)
+## Known limitations (v0.2.0)
 
 - **NVIDIA only for GPU acceleration** — AMD ROCm and Intel Arc are
   not supported. CPU fallback works on any x86_64 Linux.
-- **No floating overlay UI** — planned for v0.2.
 - **No karaoke word-level highlighting** — deferred (Kokoro doesn't
   expose word timings).
 - **No browser extension** — deferred.
@@ -198,6 +209,9 @@ sentence replace the content with a SHA-1 fingerprint + length, so
 - **GNOME Wayland primary-selection gaps** — some Electron apps don't
   publish to PRIMARY. Workaround: use `speak-clipboard` + Ctrl+C.
   See [`docs/gotchas.md`](docs/gotchas.md).
+- **GlobalShortcuts portal not supported on GNOME** — GNOME 46/47
+  does not implement the XDG GlobalShortcuts portal. GNOME users
+  continue using the gsettings-based hotkey path.
 
 Full list: [`ROADMAP.md`](ROADMAP.md)
 
@@ -222,11 +236,11 @@ pip install -e .[test]
 python -m pytest tests/ --ignore=tests/test_real_kokoro_smoke.py -q
 ```
 
-166 tests, ~2.5 seconds. No GPU or audio device required — tests use
+206 tests, ~2.5 seconds. No GPU or audio device required — tests use
 `FakeProvider` + `NullSink` + `ASGITransport`.
 
 There is also an optional integration test that uses the real Kokoro
-model and `sounddevice` (1 extra test, 167 total):
+model and `sounddevice` (1 extra test, 207 total):
 
 ```bash
 LEXALOUD_REAL_TTS=1 python -m pytest tests/test_real_kokoro_smoke.py -s

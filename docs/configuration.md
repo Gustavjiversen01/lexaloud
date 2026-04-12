@@ -46,6 +46,12 @@ systemctl --user restart lexaloud.service
 | `expand_latin_abbreviations` | `true` | Expand `i.e.`, `e.g.`, `etc.` to full forms. |
 | `pdf_cleanup` | `true` | Handle line-break hyphenation and other PDF paste artifacts. |
 
+### `[advanced]`
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `overlay` | `false` | Show the floating overlay when speaking. The overlay is an always-on-top sentence caption bar. Enable via `overlay = true` under `[advanced]` or from the control window's Settings tab. On wlroots compositors and KWin, the overlay uses `gtk-layer-shell` for proper stacking; on X11 and GNOME Wayland it falls back to a `NOTIFICATION` type hint. |
+
 ## Voice selection
 
 The control window (`lexaloud-control` or the tray menu → Control

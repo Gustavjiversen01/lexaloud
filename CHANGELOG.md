@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - UNRELEASED
+
+### Added
+- **MPRIS2 media player interface** via `dbus-fast` — desktop media keys,
+  GNOME's top-bar media indicator, KDE's media widget, Bluetooth headphone
+  buttons, and `playerctl` all control Lexaloud playback with zero
+  configuration.
+- **Floating overlay** — an always-on-top GTK3 sentence caption bar with
+  dual Wayland backend (`gtk-layer-shell` for wlroots/KWin, `NOTIFICATION`
+  type hint for X11/GNOME Wayland). Off by default; enable via
+  `[advanced] overlay = true` or the control window's Settings tab.
+- **XDG GlobalShortcuts portal** — Wayland-native global hotkeys on KDE
+  Plasma 6+, Hyprland, and Sway (with `xdg-desktop-portal-wlr`). GNOME
+  does not support this portal and continues using the gsettings path.
+- Player state-change callbacks — property setters for `_state` and
+  `_current_sentence` auto-fire a callback used by MPRIS2 to emit
+  `PropertiesChanged` signals.
+- `[advanced]` config section with `overlay` toggle.
+
+### Changed
+- `dbus-fast` is an optional dependency (`pip install lexaloud[dbus]`). The
+  daemon works normally without it.
+- Overlay toggle added to the control window's Settings tab.
+
+### Fixed
+- `_full_stop` no longer kills the warm audio stream when the player is
+  idle, preventing the first-use audio clipping bug from recurring after
+  a stop.
+- Daemon log level override now works correctly when `cli.main()` sets
+  the root logger to WARNING before `cmd_daemon`.
+
 ## [0.1.1] - 2026-04-12
 
 ### Fixed
@@ -29,7 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `warn_unused_ignores` was flagging (the `[[tool.mypy.overrides]]`
   config already silences these modules).
 
-[Unreleased]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.0...v0.1.1
 
 ## [0.1.0] - 2026-04-09

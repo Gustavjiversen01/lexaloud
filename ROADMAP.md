@@ -17,17 +17,16 @@ Bug fixes and small quality-of-life items based on early user feedback.
 - Fedora 41 VM smoke test documented + CI job (if feasible)
 - Demo GIF in the README
 
-## v0.2.0
+## v0.2.0 (done)
 
-Larger features that require design discussion first.
+- ~~**Floating overlay UI**~~ -- shipped in v0.2.0
+- ~~**MPRIS2 integration**~~ -- shipped in v0.2.0
+- ~~**XDG GlobalShortcuts portal**~~ -- shipped in v0.2.0
 
-- **Floating overlay UI** — always-on-top captions that highlight the
-  current sentence, with mouse-through so underlying windows stay
-  interactive
-- **MPRIS2 integration** — media keys and system media widgets control
-  lexaloud playback
-- **XDG GlobalShortcuts portal** — Wayland-native global hotkey binding
-  without GNOME gsettings hacks
+## v0.2.x / v0.3.0
+
+Remaining items from the original v0.2 plan, plus new items.
+
 - **`setuptools_scm`** — single-source version from git tags instead of
   hand-bumping `__init__.py` and `pyproject.toml`
 - **`gui_control.py` decomposition** — split the 691-LOC single file into
