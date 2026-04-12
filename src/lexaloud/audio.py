@@ -245,7 +245,12 @@ class SoundDeviceSink:
         """Pre-open the stream during daemon startup to warm PipeWire's
         resampler. Runs _open_stream in an executor so the blocking
         PortAudio calls + 2s silence write don't stall the event loop."""
-        log.info("sink warmup: opening stream (sr=%d, ch=%d, prime=%.1fs)", sample_rate, channels, self.COLD_PRIME_SECONDS)
+        log.info(
+            "sink warmup: opening stream (sr=%d, ch=%d, prime=%.1fs)",
+            sample_rate,
+            channels,
+            self.COLD_PRIME_SECONDS,
+        )
         async with self._lock:
             if self._stream is not None:
                 log.info("sink warmup: stream already open, skipping")

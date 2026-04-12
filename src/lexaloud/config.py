@@ -77,6 +77,13 @@ class DaemonConfig:
 
 
 @dataclass
+class AdvancedConfig:
+    # Show the floating overlay when speaking. Off by default to keep
+    # Lexaloud discreet — enable in config.toml under [advanced].
+    overlay: bool = False
+
+
+@dataclass
 class ProviderConfig:
     voice: str = "af_heart"
     lang: str = "en-us"
@@ -101,9 +108,10 @@ class Config:
     daemon: DaemonConfig = field(default_factory=DaemonConfig)
     provider: ProviderConfig = field(default_factory=ProviderConfig)
     preprocessor: PreprocessorCfg = field(default_factory=PreprocessorCfg)
+    advanced: AdvancedConfig = field(default_factory=AdvancedConfig)
 
 
-_NESTED_TYPES = (CaptureConfig, DaemonConfig, ProviderConfig, PreprocessorCfg)
+_NESTED_TYPES = (CaptureConfig, DaemonConfig, ProviderConfig, PreprocessorCfg, AdvancedConfig)
 
 
 def _merge(dc, data: dict) -> None:
@@ -151,4 +159,6 @@ def load_config(path: Path | None = None) -> Config:
         _merge(cfg.provider, data["provider"])
     if isinstance(data.get("preprocessor"), dict):
         _merge(cfg.preprocessor, data["preprocessor"])
+    if isinstance(data.get("advanced"), dict):
+        _merge(cfg.advanced, data["advanced"])
     return cfg

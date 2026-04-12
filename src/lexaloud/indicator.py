@@ -222,6 +222,18 @@ class LexaloudIndicator:
         self.item_stop.connect("activate", self._on_stop_playback)
         self.menu.append(self.item_stop)
 
+        # Overlay menu item only visible when [advanced] overlay = true
+        self.item_overlay = Gtk.MenuItem(label="Show overlay")
+        self.item_overlay.connect("activate", self._on_show_overlay)
+        self.menu.append(self.item_overlay)
+        try:
+            from .config import load_config
+
+            if not load_config().advanced.overlay:
+                self.item_overlay.hide()
+        except Exception:  # noqa: BLE001
+            self.item_overlay.hide()  # hide by default if config can't be read
+
         self.menu.append(Gtk.SeparatorMenuItem())
 
         self.item_control = Gtk.MenuItem(label="Control window…")
@@ -315,6 +327,10 @@ class LexaloudIndicator:
 
     def _on_stop_playback(self, _src) -> None:
         self._spawn_detached([LEXALOUD_BIN, "stop"])
+
+    def _on_show_overlay(self, _src) -> None:
+        overlay_bin = str(VENV_BIN / "lexaloud-overlay")
+        self._spawn_detached([overlay_bin])
 
     def _on_control(self, _src) -> None:
         # Import here so the indicator starts even if the control window

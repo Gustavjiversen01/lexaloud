@@ -50,9 +50,10 @@ import asyncio
 import hashlib
 import logging
 from collections import deque
+from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Literal
 
 import numpy as np
 

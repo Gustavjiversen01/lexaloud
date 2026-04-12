@@ -43,3 +43,10 @@ strip_parenthetical_citations = false
 expand_latin_abbreviations = true
 # PDF-style text cleanup (hyphenation across line breaks, etc.)
 pdf_cleanup = true
+
+[advanced]
+# Show a floating overlay bar when Lexaloud is speaking. The overlay
+# displays the current sentence and has pause/skip/stop buttons.
+# Off by default to keep Lexaloud discreet. Enable if you want visual
+# feedback during playback.
+overlay = false
