@@ -52,7 +52,7 @@ import logging
 from collections import deque
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Literal
+from typing import Callable, Literal
 
 import numpy as np
 
@@ -133,15 +133,47 @@ class Player:
         self._producer_task: asyncio.Task | None = None
         self._consumer_task: asyncio.Task | None = None
 
-        self._current_sentence: str | None = None
+        self._current_sentence_value: str | None = None
         self._last_finished_sentence: str | None = None
-        self._state: State = "idle"
+        self._state_value: State = "idle"
         self._last_error: str | None = None
+
+        # Callback fired whenever _state or _current_sentence changes.
+        # Used by the MPRIS2 adapter to emit PropertiesChanged signals.
+        # Set via player._on_state_change = callback after construction.
+        self._on_state_change: Callable[[PlayerState], None] | None = None
 
         # Protects transitions that mutate job state (stop/skip/back/speak).
         # Prevents two concurrent HTTP requests from entangling their
         # cancellation logic.
         self._control_lock = asyncio.Lock()
+
+    # ---------- property-based state with auto-fire callback ----------
+
+    @property
+    def _state(self) -> State:
+        return self._state_value
+
+    @_state.setter
+    def _state(self, new: State) -> None:
+        self._state_value = new
+        self._fire_state_change()
+
+    @property
+    def _current_sentence(self) -> str | None:
+        return self._current_sentence_value
+
+    @_current_sentence.setter
+    def _current_sentence(self, new: str | None) -> None:
+        self._current_sentence_value = new
+        self._fire_state_change()
+
+    def _fire_state_change(self) -> None:
+        if self._on_state_change is not None:
+            try:
+                self._on_state_change(self.state)
+            except Exception:  # noqa: BLE001
+                pass  # never let a callback crash the player
 
     # ---------- state introspection ----------
 

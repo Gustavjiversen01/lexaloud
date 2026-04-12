@@ -150,9 +150,26 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
                 comps.player.set_warming(False)
 
         warmup_task = asyncio.create_task(_warmup_bg(), name="lexaloud-warmup")
+
+        # MPRIS2 integration (optional — dbus-fast may not be installed)
+        mpris = None
+        try:
+            from .mpris import MprisAdapter
+
+            mpris = MprisAdapter(comps.player, comps.cfg)
+            await mpris.connect()
+        except Exception as e:  # noqa: BLE001
+            log.warning("MPRIS2 unavailable: %s", e)
+            mpris = None
+
         try:
             yield
         finally:
+            if mpris is not None:
+                try:
+                    mpris.disconnect()
+                except Exception:  # noqa: BLE001
+                    pass
             warmup_task.cancel()
             try:
                 await warmup_task
