@@ -162,9 +162,24 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
             log.warning("MPRIS2 unavailable: %s", e)
             mpris = None
 
+        # XDG GlobalShortcuts portal (KDE/Sway/Hyprland; NOT GNOME)
+        shortcuts = None
+        try:
+            from .shortcuts import ShortcutsAdapter
+
+            shortcuts = ShortcutsAdapter(comps.player, comps.cfg, comps.preproc_config)
+            registered = await shortcuts.try_register()
+            if not registered:
+                shortcuts = None
+        except Exception as e:  # noqa: BLE001
+            log.info("GlobalShortcuts portal unavailable: %s", e)
+            shortcuts = None
+
         try:
             yield
         finally:
+            if shortcuts is not None:
+                shortcuts.disconnect()
             if mpris is not None:
                 try:
                     mpris.disconnect()
