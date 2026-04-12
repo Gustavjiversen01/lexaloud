@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lexaloud"
-version = "0.1.1"
+version = "0.2.0"
 description = "A local, private Linux text-to-speech tool. Select text in any app, press a hotkey, hear it read by Kokoro-82M on your GPU."
 readme = "README.md"
 requires-python = ">=3.11"
