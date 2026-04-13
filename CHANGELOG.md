@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-04-13
+
+### Changed
+- **Supply-chain integrity**: both lockfiles now include SHA-256 hashes
+  (762 hashes for CPU, 769 for CUDA 12). `scripts/install.sh` passes
+  `--require-hashes` to pip, verifying every wheel against PyPI-published
+  digests.
+- **Python 3.13 CI**: test matrix now includes Python 3.13. Tests that
+  depend on `python3-gi` (system GTK bindings) skip gracefully when the
+  bindings are unavailable for the running Python version.
+- Added `scripts/record-demo.sh` for recording demo GIFs via
+  `wf-recorder` (Wayland) or `ffmpeg x11grab` (X11).
+
 ## [0.2.0] - 2026-04-13
 
 ### Added
@@ -60,7 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `warn_unused_ignores` was flagging (the `[[tool.mypy.overrides]]`
   config already silences these modules).
 
-[Unreleased]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.0...v0.1.1
 
