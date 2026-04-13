@@ -5,9 +5,11 @@ target machine. Until then, it shows the expected columns and the behaviors
 we have prior evidence for (from the plan's research, not from the target
 box itself).
 
-**Current status:** not yet run on the target machine. The raw output of a
-run is written to `docs/capture-matrix.raw.md` by the spike script; this
-file (`capture-matrix.md`) is the distilled summary a user can scan.
+**Current status:** not yet run on the target machine. Run the spike script
+from the repo root, then distill the results into the table below.
+
+The raw output is written to `docs/capture-matrix.raw.md` by the spike
+script; this file is the distilled summary a user can scan.
 
 ## Session under test
 

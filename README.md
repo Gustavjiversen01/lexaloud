@@ -8,7 +8,7 @@
 [![test](https://github.com/Gustavjiversen01/lexaloud/actions/workflows/test.yml/badge.svg)](https://github.com/Gustavjiversen01/lexaloud/actions/workflows/test.yml)
 [![lint](https://github.com/Gustavjiversen01/lexaloud/actions/workflows/lint.yml/badge.svg)](https://github.com/Gustavjiversen01/lexaloud/actions/workflows/lint.yml)
 
-<!-- TODO: replace with a real demo GIF once recorded -->
+<!-- Record a demo with: ./scripts/record-demo.sh -->
 <!-- ![demo](docs/demo.gif) -->
 
 ## How it works
