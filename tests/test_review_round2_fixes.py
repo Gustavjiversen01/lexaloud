@@ -193,8 +193,8 @@ def test_load_config_recovers_from_read_error(tmp_path: Path, monkeypatch):
 
 
 def test_toml_escape_handles_control_chars():
-    pytest.importorskip("lexaloud.gui_control", reason="python3-gi not available for this Python version")
-    from lexaloud.gui_control import _toml_escape
+    pytest.importorskip("lexaloud.gui_control.config_io", reason="python3-gi not available for this Python version")
+    from lexaloud.gui_control.config_io import _toml_escape
 
     escaped = _toml_escape('line1\nline2\twith tab\tand "quotes"')
     # Every control char and quote is escaped.
@@ -207,8 +207,8 @@ def test_toml_escape_handles_control_chars():
 
 
 def test_toml_save_load_round_trip(tmp_path, monkeypatch):
-    pytest.importorskip("lexaloud.gui_control", reason="python3-gi not available for this Python version")
-    from lexaloud.gui_control import _load_config_dict, _save_config_dict
+    pytest.importorskip("lexaloud.gui_control.config_io", reason="python3-gi not available for this Python version")
+    from lexaloud.gui_control.config_io import _load_config_dict, _save_config_dict
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
@@ -225,8 +225,8 @@ def test_toml_save_load_round_trip(tmp_path, monkeypatch):
 
 
 def test_toml_save_warns_and_drops_unsupported_types(tmp_path, monkeypatch, caplog):
-    pytest.importorskip("lexaloud.gui_control", reason="python3-gi not available for this Python version")
-    from lexaloud.gui_control import _load_config_dict, _save_config_dict
+    pytest.importorskip("lexaloud.gui_control.config_io", reason="python3-gi not available for this Python version")
+    from lexaloud.gui_control.config_io import _load_config_dict, _save_config_dict
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
@@ -245,8 +245,8 @@ def test_toml_save_warns_and_drops_unsupported_types(tmp_path, monkeypatch, capl
 
 
 def test_toml_save_does_not_write_empty_sections(tmp_path, monkeypatch):
-    pytest.importorskip("lexaloud.gui_control", reason="python3-gi not available for this Python version")
-    from lexaloud.gui_control import _save_config_dict
+    pytest.importorskip("lexaloud.gui_control.config_io", reason="python3-gi not available for this Python version")
+    from lexaloud.gui_control.config_io import _save_config_dict
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 

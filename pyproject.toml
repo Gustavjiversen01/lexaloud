@@ -136,7 +136,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["B018"]  # useless expression is fine in tests
-"src/lexaloud/gui_control.py" = ["E402"]  # gi imports must follow sys.path hack
+"src/lexaloud/gui_control/_gi_shim.py" = ["E402"]  # gi imports must follow sys.path hack
 "src/lexaloud/indicator.py" = ["E402"]    # same
 "src/lexaloud/overlay.py" = ["E402"]      # same
 "src/lexaloud/mpris.py" = ["UP037", "F821", "F722", "F811"]  # dbus-fast needs runtime string annotations
