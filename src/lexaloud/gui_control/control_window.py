@@ -1,7 +1,7 @@
 """GTK3 control window for Lexaloud.
 
 Lets the user change the default Kokoro voice, playback speed, and the
-GNOME custom keyboard shortcuts.
+desktop keyboard shortcuts.
 """
 
 from __future__ import annotations
@@ -12,12 +12,9 @@ import subprocess
 from ._gi_shim import Gtk
 from .config_io import _load_config_dict, _save_config_dict
 from .keybindings import (
-    KB_BASE,
-    KB_SCHEMA,
     SHORTCUTS,
     CaptureDialog,
-    _gsettings_get,
-    get_shortcut_binding,
+    detect_backend,
 )
 from .voices import KOKORO_VOICES, LANGUAGES
 
@@ -30,6 +27,8 @@ class ControlWindow(Gtk.Window):
         self.set_default_size(520, 480)
         self.set_border_width(16)
         self.set_position(Gtk.WindowPosition.CENTER)
+
+        self._kb_backend = detect_backend()
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         self.add(outer)
@@ -92,19 +91,27 @@ class ControlWindow(Gtk.Window):
         self.speed_adjustment.connect("value-changed", self._on_speed_changed)
 
         # Hotkeys section
-        keys_frame = Gtk.Frame(label="Hotkeys (GNOME custom shortcuts)")
+        keys_frame = Gtk.Frame(label=self._kb_backend.frame_label)
         keys_grid = Gtk.Grid(column_spacing=12, row_spacing=8)
         keys_grid.set_border_width(12)
         keys_frame.add(keys_grid)
         outer.pack_start(keys_frame, False, False, 0)
 
         self.hotkey_labels: dict[str, Gtk.Label] = {}
-        for row, (path_suffix, label, _cmd) in enumerate(SHORTCUTS):
+        can_change = self._kb_backend.is_available()
+        for row, (shortcut_id, label, _cmd) in enumerate(SHORTCUTS):
             name_lbl = Gtk.Label(label=f"{label}:", xalign=0)
-            current_lbl = Gtk.Label(label=get_shortcut_binding(path_suffix), xalign=0)
-            self.hotkey_labels[path_suffix] = current_lbl
+            current_lbl = Gtk.Label(
+                label=self._kb_backend.get_binding(shortcut_id), xalign=0
+            )
+            self.hotkey_labels[shortcut_id] = current_lbl
             change_btn = Gtk.Button(label="Change…")
-            change_btn.connect("clicked", self._on_change_binding, path_suffix)
+            change_btn.set_sensitive(can_change)
+            if not can_change:
+                change_btn.set_tooltip_text(
+                    "Keybindings are managed by the desktop environment."
+                )
+            change_btn.connect("clicked", self._on_change_binding, shortcut_id)
             keys_grid.attach(name_lbl, 0, row, 1, 1)
             keys_grid.attach(current_lbl, 1, row, 1, 1)
             keys_grid.attach(change_btn, 2, row, 1, 1)
@@ -250,26 +257,29 @@ class ControlWindow(Gtk.Window):
         except Exception as e:  # noqa: BLE001
             self.status_label.set_text(f"Saved {summary}; couldn't restart daemon: {e}")
 
-    def _on_change_binding(self, _btn, path_suffix: str) -> None:
-        dialog = CaptureDialog(self, path_suffix)
+    def _on_change_binding(self, _btn, shortcut_id: str) -> None:
+        dialog = CaptureDialog(self, shortcut_id, self._kb_backend)
         response = dialog.run()
         captured = dialog.captured_binding
         write_ok = dialog.write_ok
         dialog.destroy()
-        self.hotkey_labels[path_suffix].set_text(get_shortcut_binding(path_suffix))
+        self.hotkey_labels[shortcut_id].set_text(
+            self._kb_backend.get_binding(shortcut_id)
+        )
         if response == Gtk.ResponseType.OK and captured:
             if not write_ok:
                 self.status_label.set_text(
-                    "Failed to write hotkey binding to gsettings. "
+                    "Failed to write hotkey binding. "
                     "Check `journalctl --user` for details."
                 )
                 return
-            actual = _gsettings_get(KB_SCHEMA, "binding", f"{KB_BASE}/{path_suffix}/")
-            if actual != captured:
+            # Verify the write stuck
+            actual = self._kb_backend.get_binding(shortcut_id)
+            human = captured  # the raw binding string
+            if actual != "(unset)" and human not in actual:
                 self.status_label.set_text(
-                    f"Hotkey write did not stick: expected {captured!r}, "
-                    f"gsettings still reports {actual!r}. Is the GNOME schema "
-                    f"registered?"
+                    f"Hotkey write may not have stuck: "
+                    f"binding now shows {actual!r}."
                 )
 
 

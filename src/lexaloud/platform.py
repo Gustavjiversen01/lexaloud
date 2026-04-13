@@ -78,6 +78,10 @@ class DesktopInfo:
         name_upper = self.name.upper()
         return "KDE" in name_upper or "PLASMA" in name_upper
 
+    @property
+    def is_xfce(self) -> bool:
+        return "XFCE" in self.name.upper()
+
 
 @dataclass(frozen=True)
 class GpuInfo:
