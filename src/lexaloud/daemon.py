@@ -29,7 +29,7 @@ import concurrent.futures
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -40,7 +40,7 @@ from .audio import AudioSink, SoundDeviceSink
 from .config import Config, load_config, runtime_dir, socket_path
 from .models import assert_onnxruntime_environment, ensure_artifacts
 from .player import Player, PlayerState
-from .preprocessor import PreprocessorConfig, preprocess
+from .preprocessor import PreprocessorConfig, preprocess_with_llm
 from .providers.base import SpeechProvider
 from .providers.kokoro import KokoroProvider
 
@@ -83,6 +83,7 @@ class DaemonComponents:
     sink: AudioSink
     player: Player
     preproc_config: PreprocessorConfig
+    normalizer: Any = None  # LlmNormalizer | None
 
 
 def build_components(cfg: Config | None = None) -> DaemonComponents:
@@ -111,12 +112,22 @@ def build_components(cfg: Config | None = None) -> DaemonComponents:
         normalize_math_symbols=cfg.preprocessor.normalize_math_symbols,
         pdf_cleanup=cfg.preprocessor.pdf_cleanup,
     )
+    normalizer = None
+    if cfg.normalizer.enabled:
+        try:
+            from .preprocessor.llm_normalize import LlmNormalizer
+
+            normalizer = LlmNormalizer(cfg.normalizer)
+        except Exception as e:  # noqa: BLE001
+            log.warning("LLM normalizer initialization failed: %s", e)
+
     return DaemonComponents(
         cfg=cfg,
         provider=provider,
         sink=sink,
         player=player,
         preproc_config=preproc_config,
+        normalizer=normalizer,
     )
 
 
@@ -151,8 +162,13 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
                 await comps.sink.warmup(24000, 1)
             except Exception as e:  # noqa: BLE001
                 log.warning("sink warmup failed (audio device may be unavailable): %s", e)
-            finally:
-                comps.player.set_warming(False)
+            # LLM normalizer warmup (optional) [M9]
+            if comps.normalizer is not None:
+                try:
+                    await comps.normalizer.warmup()
+                except Exception as e:  # noqa: BLE001
+                    log.warning("LLM normalizer warmup failed: %s", e)
+            comps.player.set_warming(False)
 
         warmup_task = asyncio.create_task(_warmup_bg(), name="lexaloud-warmup")
 
@@ -172,7 +188,9 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
         try:
             from .shortcuts import ShortcutsAdapter
 
-            shortcuts = ShortcutsAdapter(comps.player, comps.cfg, comps.preproc_config)
+            shortcuts = ShortcutsAdapter(
+                comps.player, comps.cfg, comps.preproc_config, comps.normalizer
+            )
             registered = await shortcuts.try_register()
             if not registered:
                 shortcuts = None
@@ -196,6 +214,8 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
             except (asyncio.CancelledError, Exception):  # noqa: BLE001
                 pass
             await comps.player.shutdown()
+            if comps.normalizer is not None:
+                comps.normalizer.shutdown()
             exec_pool.shutdown(wait=False, cancel_futures=True)
 
     app = FastAPI(title="Lexaloud", version=__version__, lifespan=lifespan)
@@ -238,7 +258,7 @@ def create_app(components: DaemonComponents | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail="text contains null bytes")
         if len(req.text.encode("utf-8")) > max_bytes:
             raise HTTPException(status_code=413, detail="text exceeds capture.max_bytes")
-        sentences = preprocess(req.text, comps.preproc_config)
+        sentences = await preprocess_with_llm(req.text, comps.preproc_config, comps.normalizer)
         if not sentences:
             raise HTTPException(status_code=400, detail="no synthesizable sentences")
         too_long = [(i, len(s)) for i, s in enumerate(sentences) if len(s) > MAX_SENTENCE_CHARS]

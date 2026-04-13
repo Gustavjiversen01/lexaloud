@@ -61,10 +61,12 @@ class ShortcutsAdapter:
         player: "Player",
         cfg: "Config",
         preproc_config: "PreprocessorConfig",
+        normalizer: Any = None,
     ) -> None:
         self._player = player
         self._cfg = cfg
         self._preproc_config = preproc_config
+        self._normalizer = normalizer
         self._bus: Any = None
         self._signal_handler: Any = None
 
@@ -210,7 +212,7 @@ class ShortcutsAdapter:
         a separate process). The daemon runs as systemd --user and inherits
         WAYLAND_DISPLAY + DISPLAY, so wl-paste / xclip work.
         """
-        from .preprocessor import preprocess
+        from .preprocessor import preprocess_with_llm
         from .selection import SelectionError, read_clipboard, read_primary
 
         loop = asyncio.get_running_loop()
@@ -229,7 +231,9 @@ class ShortcutsAdapter:
             log.debug("shortcut capture error (%s): %s", source, e)
             return
 
-        sentences = preprocess(result.text, self._preproc_config)
+        sentences = await preprocess_with_llm(
+            result.text, self._preproc_config, self._normalizer
+        )
         if not sentences:
             log.debug("shortcut capture produced no sentences from %s", source)
             return
