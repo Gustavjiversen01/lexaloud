@@ -19,10 +19,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Only 3.12 in v0.2.0. Python 3.11 is blocked by the system
-        # python3-gi binding on Ubuntu 24.04 being compiled for 3.12.
-        # Python 3.13 is deferred pending phonemizer-fork / pysbd wheels.
-        python-version: ["3.12"]
+        # Python 3.11 is blocked by the system python3-gi binding on
+        # Ubuntu 24.04 being compiled for 3.12.
+        python-version: ["3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v6

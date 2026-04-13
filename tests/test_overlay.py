@@ -17,8 +17,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import httpx
+import pytest
 
-from lexaloud.overlay import (
+pytest.importorskip("lexaloud.overlay", reason="python3-gi not available for this Python version")
+
+from lexaloud.overlay import (  # noqa: E402
     LABEL_PAUSE,
     LABEL_PLAY,
     OverlayWindow,
