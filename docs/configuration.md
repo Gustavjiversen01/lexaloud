@@ -46,6 +46,8 @@ systemctl --user restart lexaloud.service
 | `expand_latin_abbreviations` | `true` | Expand `i.e.`, `e.g.`, `etc.` to full forms. |
 | `expand_academic_abbreviations` | `true` | Expand `Fig.`, `Eq.`, `Sec.`, `Thm.`, `w.r.t.`, `i.i.d.`, etc. to full forms. Helps pysbd sentence splitting and TTS pronunciation. |
 | `normalize_numbers` | `true` | Convert numbers to spoken English: ordinals (`1st` -> first), cardinals with commas (`1,234`), decimals, percentages, currency, years. Numbers after reference words (Figure 3, Section 2.1) are left as digits. IP addresses, version strings, and phone numbers are protected. |
+| `normalize_urls` | `true` | Replace URLs with "link to [domain]" and email addresses with "[name] at [domain]". Markdown links `[text](url)` are replaced with just the link text. |
+| `normalize_math_symbols` | `true` | Expand Unicode math symbols to spoken words: Greek letters (alpha-omega), relational operators (less than or equal to), set theory symbols, arrows, superscript digits (squared, cubed). ASCII operators (`<=`, `->`, `!=`) are NOT expanded. |
 | `pdf_cleanup` | `true` | Handle line-break hyphenation and other PDF paste artifacts. |
 
 ### `[advanced]`

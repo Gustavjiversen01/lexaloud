@@ -101,6 +101,8 @@ class PreprocessorCfg:
     expand_latin_abbreviations: bool = True
     expand_academic_abbreviations: bool = True
     normalize_numbers: bool = True
+    normalize_urls: bool = True
+    normalize_math_symbols: bool = True
     pdf_cleanup: bool = True
 
 

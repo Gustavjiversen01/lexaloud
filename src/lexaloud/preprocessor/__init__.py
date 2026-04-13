@@ -16,6 +16,7 @@ from .citations import strip_numeric_bracket_citations, strip_parenthetical_cita
 from .numbers import normalize_numbers
 from .pdf_cleanup import clean_pdf_paste
 from .segmenter import split_sentences
+from .symbols import normalize_math_symbols, normalize_urls_emails
 
 
 @dataclass
@@ -25,6 +26,8 @@ class PreprocessorConfig:
     expand_latin_abbreviations: bool = True
     expand_academic_abbreviations: bool = True
     normalize_numbers: bool = True
+    normalize_urls: bool = True
+    normalize_math_symbols: bool = True
     pdf_cleanup: bool = True
 
 
@@ -32,6 +35,9 @@ def preprocess(text: str, config: PreprocessorConfig | None = None) -> list[str]
     """Run the full pipeline and return a list of sentences."""
     cfg = config or PreprocessorConfig()
 
+    # Math symbols first (before PDF cleanup's NFKC flattens superscripts)
+    if cfg.normalize_math_symbols:
+        text = normalize_math_symbols(text)
     if cfg.pdf_cleanup:
         text = clean_pdf_paste(text)
     if cfg.strip_numeric_bracket_citations:
@@ -42,6 +48,8 @@ def preprocess(text: str, config: PreprocessorConfig | None = None) -> list[str]
         text = expand_latin_abbreviations(text)
     if cfg.expand_academic_abbreviations:
         text = expand_academic_abbreviations(text)
+    if cfg.normalize_urls:
+        text = normalize_urls_emails(text)
     if cfg.normalize_numbers:
         text = normalize_numbers(text)
 
@@ -56,7 +64,9 @@ __all__ = [
     "clean_pdf_paste",
     "expand_academic_abbreviations",
     "expand_latin_abbreviations",
+    "normalize_math_symbols",
     "normalize_numbers",
+    "normalize_urls_emails",
     "strip_numeric_bracket_citations",
     "strip_parenthetical_citations",
     "split_sentences",

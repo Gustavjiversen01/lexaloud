@@ -47,6 +47,11 @@ expand_academic_abbreviations = true
 # thirty-four, 50% -> fifty percent, $100 -> one hundred dollars).
 # Numbers after reference words (Figure 3, Section 2.1) are left as-is.
 normalize_numbers = true
+# Replace URLs with "link to [domain]" and emails with "[name] at [domain]"
+normalize_urls = true
+# Expand Unicode math symbols (Greek letters, operators) to spoken words.
+# Only Unicode codepoints — ASCII operators (<=, ->) are NOT expanded.
+normalize_math_symbols = true
 # PDF-style text cleanup (hyphenation across line breaks, etc.)
 pdf_cleanup = true
 
