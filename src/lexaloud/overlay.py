@@ -35,26 +35,22 @@ except ImportError:
         except ImportError:
             continue
     else:
-        print(
+        raise ImportError(
             "Lexaloud overlay: cannot import the 'gi' Python bindings.\n"
             "Install them with one of:\n"
             "  sudo apt install python3-gi gir1.2-gtk-3.0  # Debian/Ubuntu\n"
             "  sudo dnf install python3-gobject gtk3        # Fedora\n"
-            "  sudo pacman -S python-gobject gtk3            # Arch\n",
-            file=sys.stderr,
+            "  sudo pacman -S python-gobject gtk3            # Arch"
         )
-        raise SystemExit(2)
 
 try:
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
 except ValueError as e:
-    print(
+    raise ImportError(
         f"Lexaloud overlay: missing GIR typelib: {e}. "
-        "Install with `sudo apt install gir1.2-gtk-3.0`.",
-        file=sys.stderr,
-    )
-    raise SystemExit(2) from e
+        "Install with `sudo apt install gir1.2-gtk-3.0`."
+    ) from e
 
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
