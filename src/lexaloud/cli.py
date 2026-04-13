@@ -268,7 +268,7 @@ def cmd_status(args) -> int:
 
 
 def cmd_download_models(args) -> int:
-    """Fetch the Kokoro model artifacts into ~/.cache/lexaloud/models/.
+    """Fetch model artifacts into ~/.cache/lexaloud/models/.
 
     Idempotent — skips files that already pass the SHA256 check.
     """
@@ -281,6 +281,72 @@ def cmd_download_models(args) -> int:
         return EXIT_GENERIC_ERROR
     for name, path in paths.items():
         print(f"{name} -> {path}")
+
+    if getattr(args, "llm", False) or getattr(args, "all", False):
+        result = _download_llm_model()
+        if result != EXIT_OK:
+            return result
+
+    return EXIT_OK
+
+
+def _download_llm_model() -> int:
+    """Download the LLM normalizer model (GGUF) from HuggingFace."""
+    from .config import NormalizerConfig, load_config
+    from .models import default_cache_dir
+
+    cfg = load_config()
+    nc = cfg.normalizer if cfg.normalizer.model_file else NormalizerConfig()
+    dest = default_cache_dir() / nc.model_file
+
+    if dest.exists():
+        print(f"LLM model already exists: {dest}")
+        return EXIT_OK
+
+    url = f"https://huggingface.co/{nc.model_repo}/resolve/main/{nc.model_file}"
+    print(f"Downloading LLM model: {nc.model_file}")
+    print(f"  from: {url}")
+    print(f"  to:   {dest}")
+    print()
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".partial")
+
+    try:
+        from urllib.request import Request, urlopen
+
+        req = Request(url, headers={"User-Agent": "lexaloud"})
+        with urlopen(req) as resp, tmp.open("wb") as f:
+            total = resp.headers.get("Content-Length")
+            total_mb = int(total) / (1024 * 1024) if total else None
+            downloaded = 0
+            while True:
+                block = resp.read(1 << 20)
+                if not block:
+                    break
+                f.write(block)
+                downloaded += len(block)
+                mb = downloaded / (1024 * 1024)
+                if total_mb:
+                    pct = (downloaded / int(total)) * 100
+                    print(
+                        f"\r  Downloaded {mb:.0f} / {total_mb:.0f} MB ({pct:.0f}%)",
+                        end="",
+                        flush=True,
+                    )
+                else:
+                    print(f"\r  Downloaded {mb:.0f} MB", end="", flush=True)
+        print()  # newline after progress
+        tmp.replace(dest)
+    except BaseException:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+        raise
+
+    print(f"LLM model downloaded: {dest}")
     return EXIT_OK
 
 
@@ -339,11 +405,17 @@ def build_parser() -> argparse.ArgumentParser:
         ("skip", cmd_skip),
         ("back", cmd_back),
         ("status", cmd_status),
-        ("download-models", cmd_download_models),
         ("daemon", cmd_daemon),
     ]:
         sp = sub.add_parser(name, help=f"{name}")
         sp.set_defaults(func=handler)
+
+    sp = sub.add_parser("download-models", help="fetch model artifacts")
+    sp.add_argument(
+        "--llm", action="store_true", help="also download the LLM normalizer model (~1 GB)"
+    )
+    sp.add_argument("--all", action="store_true", help="download all models (Kokoro + LLM)")
+    sp.set_defaults(func=cmd_download_models)
 
     sp = sub.add_parser("setup", help="run first-time setup (post-install)")
     sp.add_argument("--force", action="store_true", help="overwrite existing systemd unit")
