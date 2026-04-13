@@ -10,8 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .abbreviations import expand_latin_abbreviations
+from .abbreviations import expand_latin_abbreviations
 from .academic_abbreviations import expand_academic_abbreviations
 from .citations import strip_numeric_bracket_citations, strip_parenthetical_citations
+from .numbers import normalize_numbers
 from .pdf_cleanup import clean_pdf_paste
 from .segmenter import split_sentences
 
@@ -22,6 +24,7 @@ class PreprocessorConfig:
     strip_parenthetical_citations: bool = False
     expand_latin_abbreviations: bool = True
     expand_academic_abbreviations: bool = True
+    normalize_numbers: bool = True
     pdf_cleanup: bool = True
 
 
@@ -39,6 +42,8 @@ def preprocess(text: str, config: PreprocessorConfig | None = None) -> list[str]
         text = expand_latin_abbreviations(text)
     if cfg.expand_academic_abbreviations:
         text = expand_academic_abbreviations(text)
+    if cfg.normalize_numbers:
+        text = normalize_numbers(text)
 
     sentences = split_sentences(text)
     # Drop empty/whitespace-only remnants.
@@ -51,6 +56,7 @@ __all__ = [
     "clean_pdf_paste",
     "expand_academic_abbreviations",
     "expand_latin_abbreviations",
+    "normalize_numbers",
     "strip_numeric_bracket_citations",
     "strip_parenthetical_citations",
     "split_sentences",

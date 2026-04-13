@@ -100,6 +100,7 @@ class PreprocessorCfg:
     strip_parenthetical_citations: bool = False
     expand_latin_abbreviations: bool = True
     expand_academic_abbreviations: bool = True
+    normalize_numbers: bool = True
     pdf_cleanup: bool = True
 
 

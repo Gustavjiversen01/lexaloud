@@ -43,6 +43,10 @@ strip_parenthetical_citations = false
 expand_latin_abbreviations = true
 # Expand academic abbreviations (Fig., Eq., Sec., Thm., etc.)
 expand_academic_abbreviations = true
+# Convert numbers to spoken words (1,234 -> one thousand two hundred
+# thirty-four, 50% -> fifty percent, $100 -> one hundred dollars).
+# Numbers after reference words (Figure 3, Section 2.1) are left as-is.
+normalize_numbers = true
 # PDF-style text cleanup (hyphenation across line breaks, etc.)
 pdf_cleanup = true
 

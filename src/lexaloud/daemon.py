@@ -106,6 +106,7 @@ def build_components(cfg: Config | None = None) -> DaemonComponents:
         strip_parenthetical_citations=cfg.preprocessor.strip_parenthetical_citations,
         expand_latin_abbreviations=cfg.preprocessor.expand_latin_abbreviations,
         expand_academic_abbreviations=cfg.preprocessor.expand_academic_abbreviations,
+        normalize_numbers=cfg.preprocessor.normalize_numbers,
         pdf_cleanup=cfg.preprocessor.pdf_cleanup,
     )
     return DaemonComponents(
