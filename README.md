@@ -196,7 +196,7 @@ Selection text is never written to disk. Log entries that mention a
 sentence replace the content with a SHA-1 fingerprint + length, so
 `journalctl` never contains readable user text.
 
-## Known limitations (v0.2.1)
+## Known limitations (v0.3.0)
 
 - **NVIDIA only for GPU acceleration** — AMD ROCm and Intel Arc are
   not supported. CPU fallback works on any x86_64 Linux.

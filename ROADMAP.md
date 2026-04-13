@@ -4,18 +4,9 @@ This document buckets features and improvements into upcoming versions.
 Items are non-binding estimates; priorities may shift based on user
 feedback.
 
-## v0.1.1 (patch)
+## v0.1.1 (done)
 
-Bug fixes and small quality-of-life items based on early user feedback.
-
-- `requirements-lock.*.txt` regenerated with `--generate-hashes` and
-  `scripts/install.sh --require-hashes`
-- Spike 1 per-application capture compatibility matrix populated from a
-  real run on the target hardware; committed to `spikes/spike1_matrix.md`
-- Python 3.13 CI matrix support once `phonemizer-fork` and `pysbd` ship
-  compatible wheels
-- Fedora 41 VM smoke test documented + CI job (if feasible)
-- Demo GIF in the README
+- Audio clipping fix (sink warmup, abort-only stop, PipeWire keepalive)
 
 ## v0.2.0 (done)
 
@@ -23,22 +14,28 @@ Bug fixes and small quality-of-life items based on early user feedback.
 - ~~**MPRIS2 integration**~~ -- shipped in v0.2.0
 - ~~**XDG GlobalShortcuts portal**~~ -- shipped in v0.2.0
 
-## v0.2.x / v0.3.0
+## v0.2.1 (done)
 
-Remaining items from the original v0.2 plan, plus new items.
+- Lockfiles regenerated with SHA-256 hashes + `--require-hashes`
+- Python 3.13 CI matrix support
+- Demo GIF recording script (`scripts/record-demo.sh`)
 
-- **`setuptools_scm`** — single-source version from git tags instead of
-  hand-bumping `__init__.py` and `pyproject.toml`
-- **`gui_control.py` decomposition** — split the 691-LOC single file into
-  focused submodules (voice, hotkeys, speed, preview)
-- **Strict mypy** — tighten CI so mypy errors fail the lint job
-- **KDE and XFCE keybinding registration** — teach the Control window to
-  write to the KDE KGlobalAccel daemon and XFCE's `xfconf` instead of
-  greying out
-- **Codecov integration** — line/branch coverage reporting (decision
-  pending — may stay off for privacy)
+## v0.3.0 (done)
 
-## v0.3.0+
+- ~~**`setuptools_scm`**~~ — version derived from git tags
+- ~~**`gui_control.py` decomposition**~~ — split into focused submodules
+- ~~**Strict mypy**~~ — 0 errors, CI enforcement (no continue-on-error)
+- ~~**Desktop-aware keybindings**~~ — GNOME, XFCE, KDE (read-only), null backend
+
+## v0.3.x / v0.4.0
+
+Remaining items and new work.
+
+- **Spike 1** — per-application capture compatibility matrix on real hardware
+- **Fedora 41 VM smoke test** — documented + CI job (if feasible)
+- **Codecov integration** — line/branch coverage reporting
+
+## v0.4.0+
 
 Speculative. Please file a discussion if you'd like to work on any of
 these.

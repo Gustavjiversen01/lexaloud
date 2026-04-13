@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-13
+
+### Added
+- **Desktop-aware keybinding backends** — the control window auto-detects
+  the desktop environment and uses the appropriate keybinding mechanism:
+  - GNOME: gsettings custom-keybindings (existing behavior)
+  - XFCE: `xfconf-query` subprocess
+  - KDE Plasma 6+: read-only display (shortcuts managed via XDG
+    GlobalShortcuts portal, registered by the daemon)
+  - Other desktops: buttons greyed out with tooltip
+
+### Changed
+- **`setuptools_scm`** for automatic versioning — version is now derived
+  from git tags. Dev builds show the distance from the latest tag.
+  `fallback_version = "0.0.0"` handles shallow clones and tarballs.
+- **`gui_control.py` decomposed** into a package with focused submodules:
+  `_gi_shim`, `voices`, `config_io`, `keybindings`, `control_window`.
+  Entry point `lexaloud.gui_control:main` is unchanged.
+- **mypy strict enforcement** — all 47 errors fixed. The mypy CI job now
+  fails the build (removed `continue-on-error`). dbus-fast's runtime
+  string annotations handled via mypy overrides.
+
 ## [0.2.1] - 2026-04-13
 
 ### Changed
@@ -73,7 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `warn_unused_ignores` was flagging (the `[[tool.mypy.overrides]]`
   config already silences these modules).
 
-[Unreleased]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Gustavjiversen01/lexaloud/compare/v0.1.0...v0.1.1
