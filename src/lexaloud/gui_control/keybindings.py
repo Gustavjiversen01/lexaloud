@@ -341,9 +341,7 @@ def _event_to_binding(event) -> str | None:
 class CaptureDialog(Gtk.Dialog):
     """Modal dialog that captures the next keypress as a new binding."""
 
-    def __init__(
-        self, parent: Gtk.Window, shortcut_id: str, backend: KeybindingBackend
-    ) -> None:
+    def __init__(self, parent: Gtk.Window, shortcut_id: str, backend: KeybindingBackend) -> None:
         super().__init__(title="Press a new shortcut", transient_for=parent, flags=0)
         self.set_default_size(360, 120)
         self.shortcut_id = shortcut_id

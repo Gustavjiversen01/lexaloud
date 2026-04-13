@@ -101,16 +101,12 @@ class ControlWindow(Gtk.Window):
         can_change = self._kb_backend.is_available()
         for row, (shortcut_id, label, _cmd) in enumerate(SHORTCUTS):
             name_lbl = Gtk.Label(label=f"{label}:", xalign=0)
-            current_lbl = Gtk.Label(
-                label=self._kb_backend.get_binding(shortcut_id), xalign=0
-            )
+            current_lbl = Gtk.Label(label=self._kb_backend.get_binding(shortcut_id), xalign=0)
             self.hotkey_labels[shortcut_id] = current_lbl
             change_btn = Gtk.Button(label="Change…")
             change_btn.set_sensitive(can_change)
             if not can_change:
-                change_btn.set_tooltip_text(
-                    "Keybindings are managed by the desktop environment."
-                )
+                change_btn.set_tooltip_text("Keybindings are managed by the desktop environment.")
             change_btn.connect("clicked", self._on_change_binding, shortcut_id)
             keys_grid.attach(name_lbl, 0, row, 1, 1)
             keys_grid.attach(current_lbl, 1, row, 1, 1)
@@ -263,14 +259,11 @@ class ControlWindow(Gtk.Window):
         captured = dialog.captured_binding
         write_ok = dialog.write_ok
         dialog.destroy()
-        self.hotkey_labels[shortcut_id].set_text(
-            self._kb_backend.get_binding(shortcut_id)
-        )
+        self.hotkey_labels[shortcut_id].set_text(self._kb_backend.get_binding(shortcut_id))
         if response == Gtk.ResponseType.OK and captured:
             if not write_ok:
                 self.status_label.set_text(
-                    "Failed to write hotkey binding. "
-                    "Check `journalctl --user` for details."
+                    "Failed to write hotkey binding. Check `journalctl --user` for details."
                 )
                 return
             # Verify the write stuck
@@ -278,8 +271,7 @@ class ControlWindow(Gtk.Window):
             human = captured  # the raw binding string
             if actual != "(unset)" and human not in actual:
                 self.status_label.set_text(
-                    f"Hotkey write may not have stuck: "
-                    f"binding now shows {actual!r}."
+                    f"Hotkey write may not have stuck: binding now shows {actual!r}."
                 )
 
 
