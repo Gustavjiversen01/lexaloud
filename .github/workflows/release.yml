@@ -88,7 +88,7 @@ jobs:
           fi
           echo "notes_file=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: ${{ steps.changelog.outputs.notes_file }}
           files: dist/*
