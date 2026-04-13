@@ -164,6 +164,8 @@ module = [
     "onnxruntime",
     "dbus_fast",
     "dbus_fast.*",
+    "llama_cpp",
+    "llama_cpp.*",
 ]
 ignore_missing_imports = true
 
