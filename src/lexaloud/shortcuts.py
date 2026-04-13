@@ -21,7 +21,7 @@ continues normally.
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .config import Config
@@ -65,8 +65,8 @@ class ShortcutsAdapter:
         self._player = player
         self._cfg = cfg
         self._preproc_config = preproc_config
-        self._bus = None
-        self._signal_handler = None
+        self._bus: Any = None
+        self._signal_handler: Any = None
 
     async def try_register(self) -> bool:
         """Attempt to bind shortcuts via the GlobalShortcuts portal.
@@ -105,7 +105,7 @@ class ShortcutsAdapter:
 
         # Subscribe to Activated signal before registering shortcuts
         try:
-            iface.on_activated(self._on_activated)
+            iface.on_activated(self._on_activated)  # type: ignore[attr-defined]
             self._signal_handler = iface
         except Exception as e:
             log.debug("could not subscribe to Activated signal: %s", e)
@@ -142,7 +142,7 @@ class ShortcutsAdapter:
     async def _create_session(self, iface, variant_cls):
         """Create a GlobalShortcuts session. Returns the session handle or None."""
         try:
-            result = await iface.call_create_session(  # type: ignore[attr-defined]
+            result = await iface.call_create_session(
                 {
                     "handle_token": variant_cls("s", "lexaloud"),
                     "session_handle_token": variant_cls("s", "lexaloud"),

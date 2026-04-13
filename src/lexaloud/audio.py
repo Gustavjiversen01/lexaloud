@@ -13,7 +13,7 @@ import asyncio
 import logging
 import wave
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -167,7 +167,7 @@ class SoundDeviceSink:
     WARM_PRIME_SECONDS: float = 0.02
 
     def __init__(self) -> None:
-        self._stream = None  # sounddevice.OutputStream
+        self._stream: Any = None  # sounddevice.OutputStream
         self._stream_sample_rate: int | None = None
         self._stream_channels: int | None = None
         # asyncio lock to protect the underlying blocking sounddevice API.

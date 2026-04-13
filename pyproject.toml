@@ -162,8 +162,18 @@ module = [
     "kokoro_onnx",
     "kokoro_onnx.*",
     "onnxruntime",
+    "dbus_fast",
+    "dbus_fast.*",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# dbus-fast reads function return annotations at runtime to determine D-Bus
+# type signatures ("b", "s", "d", "x", "o"). mypy sees these as undefined
+# names, invalid types, and property redefinitions. These are inherent to
+# dbus-fast's design, not bugs in our code.
+module = ["lexaloud.mpris", "lexaloud.shortcuts"]
+disable_error_code = ["name-defined", "valid-type", "no-redef"]
 
 [tool.coverage.run]
 source = ["src/lexaloud"]

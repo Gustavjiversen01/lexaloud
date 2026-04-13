@@ -215,8 +215,6 @@ class ControlWindow(Gtk.Window):
             return
 
         cfg = _load_config_dict()
-        if not isinstance(cfg, dict):
-            cfg = {}
         provider = cfg.setdefault("provider", {})
         provider["voice"] = voice
         provider["lang"] = lang

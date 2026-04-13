@@ -31,9 +31,6 @@ jobs:
 
   mypy:
     runs-on: ubuntu-24.04
-    # Mypy starts in permissive mode per the plan — it should not block
-    # merges until the type coverage stabilizes. Tighten in v0.2.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
         with:

@@ -170,8 +170,8 @@ class KokoroProvider:
         if self._kokoro is not None:
             return
         async with self._init_lock:
-            if self._kokoro is not None:
-                return
+            if self._kokoro is not None:  # double-checked locking
+                return  # type: ignore[unreachable]
             loop = asyncio.get_running_loop()
 
             def _do_init() -> tuple[Any, Any, list[str]]:
@@ -213,8 +213,8 @@ class KokoroProvider:
             return
         await self._ensure_initialized()
         async with self._synth_lock:
-            if self._warmed:
-                return
+            if self._warmed:  # double-checked locking
+                return  # type: ignore[unreachable]
             loop = asyncio.get_running_loop()
 
             def _do_warmup() -> None:

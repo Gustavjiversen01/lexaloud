@@ -19,7 +19,7 @@ and the daemon works normally without media-key integration.
 # distinguish our D-Bus type codes ("b", "s", "d") from forward refs.
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .config import Config
@@ -96,8 +96,8 @@ class MprisAdapter:
     def __init__(self, player: "Player", cfg: "Config") -> None:
         self._player = player
         self._cfg = cfg
-        self._bus = None  # dbus_fast.aio.MessageBus | None
-        self._interface = None
+        self._bus: Any = None  # dbus_fast.aio.MessageBus | None
+        self._interface: Any = None
 
     async def connect(self) -> None:
         """Connect to the session bus and export the MPRIS2 interfaces."""
@@ -221,7 +221,7 @@ class MprisAdapter:
             def Rate(self) -> "d":  # noqa: F821
                 return 1.0
 
-            @Rate.setter  # type: ignore[attr-defined]
+            @Rate.setter
             def Rate(self, value: "d") -> None:  # noqa: F821, F811
                 pass  # speed is controlled via config, not MPRIS
 
@@ -237,7 +237,7 @@ class MprisAdapter:
             def Volume(self) -> "d":  # noqa: F821
                 return 1.0
 
-            @Volume.setter  # type: ignore[attr-defined]
+            @Volume.setter
             def Volume(self, value: "d") -> None:  # noqa: F821, F811
                 pass  # volume is OS-level
 
