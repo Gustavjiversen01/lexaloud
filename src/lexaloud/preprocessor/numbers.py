@@ -111,12 +111,38 @@ def _find_reference_numbers(text: str) -> set[int]:
 # ---------------------------------------------------------------------------
 
 _ONES = [
-    "", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
-    "seventeen", "eighteen", "nineteen",
+    "",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
 ]
 _TENS = [
-    "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+    "",
+    "",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
 ]
 _SCALES = ["", "thousand", "million"]
 
@@ -179,12 +205,32 @@ def _year_to_words(n: int) -> str:
 _ORDINAL_SUFFIX = re.compile(r"\b(\d{1,6})(st|nd|rd|th)\b", re.IGNORECASE)
 
 _ORDINAL_WORDS = {
-    1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth",
-    6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth", 10: "tenth",
-    11: "eleventh", 12: "twelfth", 13: "thirteenth", 14: "fourteenth",
-    15: "fifteenth", 16: "sixteenth", 17: "seventeenth", 18: "eighteenth",
-    19: "nineteenth", 20: "twentieth", 30: "thirtieth", 40: "fortieth",
-    50: "fiftieth", 60: "sixtieth", 70: "seventieth", 80: "eightieth",
+    1: "first",
+    2: "second",
+    3: "third",
+    4: "fourth",
+    5: "fifth",
+    6: "sixth",
+    7: "seventh",
+    8: "eighth",
+    9: "ninth",
+    10: "tenth",
+    11: "eleventh",
+    12: "twelfth",
+    13: "thirteenth",
+    14: "fourteenth",
+    15: "fifteenth",
+    16: "sixteenth",
+    17: "seventeenth",
+    18: "eighteenth",
+    19: "nineteenth",
+    20: "twentieth",
+    30: "thirtieth",
+    40: "fortieth",
+    50: "fiftieth",
+    60: "sixtieth",
+    70: "seventieth",
+    80: "eightieth",
     90: "ninetieth",
 }
 
@@ -247,10 +293,16 @@ _PERCENTAGE = re.compile(r"\b(\d+(?:\.\d+)?)%")
 _FRACTION = re.compile(r"\b(\d)/(\d)\b")
 
 _FRACTION_WORDS = {
-    (1, 2): "one half", (1, 3): "one third", (1, 4): "one quarter",
-    (1, 5): "one fifth", (1, 8): "one eighth",
-    (2, 3): "two thirds", (3, 4): "three quarters",
-    (3, 8): "three eighths", (5, 8): "five eighths", (7, 8): "seven eighths",
+    (1, 2): "one half",
+    (1, 3): "one third",
+    (1, 4): "one quarter",
+    (1, 5): "one fifth",
+    (1, 8): "one eighth",
+    (2, 3): "two thirds",
+    (3, 4): "three quarters",
+    (3, 8): "three eighths",
+    (5, 8): "five eighths",
+    (7, 8): "seven eighths",
 }
 
 # Cardinals with commas: 1,234 or 1,234,567

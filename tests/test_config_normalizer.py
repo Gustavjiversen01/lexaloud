@@ -23,7 +23,7 @@ def test_normalizer_config_defaults():
 
 def test_load_config_normalizer_enabled(tmp_path: Path):
     p = tmp_path / "config.toml"
-    p.write_text('[normalizer]\nenabled = true\nn_gpu_layers = 0\n')
+    p.write_text("[normalizer]\nenabled = true\nn_gpu_layers = 0\n")
     cfg = load_config(p)
     assert cfg.normalizer.enabled is True
     assert cfg.normalizer.n_gpu_layers == 0
@@ -34,10 +34,10 @@ def test_load_config_normalizer_enabled(tmp_path: Path):
 def test_load_config_normalizer_glossary(tmp_path: Path):
     p = tmp_path / "config.toml"
     p.write_text(
-        '[normalizer]\n'
-        'enabled = true\n'
-        '\n'
-        '[normalizer.glossary]\n'
+        "[normalizer]\n"
+        "enabled = true\n"
+        "\n"
+        "[normalizer.glossary]\n"
         'MAPPO = "Multi-Agent Proximal Policy Optimization"\n'
         'GCBF = "Graph Control Barrier Function"\n'
     )
@@ -50,11 +50,7 @@ def test_load_config_normalizer_glossary(tmp_path: Path):
 def test_load_config_normalizer_glossary_inline_table(tmp_path: Path):
     """TOML inline table syntax for glossary should also work."""
     p = tmp_path / "config.toml"
-    p.write_text(
-        '[normalizer]\n'
-        'enabled = true\n'
-        'glossary = { GPU = "graphics processing unit" }\n'
-    )
+    p.write_text('[normalizer]\nenabled = true\nglossary = { GPU = "graphics processing unit" }\n')
     cfg = load_config(p)
     assert cfg.normalizer.glossary["GPU"] == "graphics processing unit"
 

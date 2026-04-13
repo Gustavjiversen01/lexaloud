@@ -231,9 +231,7 @@ class ShortcutsAdapter:
             log.debug("shortcut capture error (%s): %s", source, e)
             return
 
-        sentences = await preprocess_with_llm(
-            result.text, self._preproc_config, self._normalizer
-        )
+        sentences = await preprocess_with_llm(result.text, self._preproc_config, self._normalizer)
         if not sentences:
             log.debug("shortcut capture produced no sentences from %s", source)
             return

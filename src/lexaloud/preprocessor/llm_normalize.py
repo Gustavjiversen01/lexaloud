@@ -52,13 +52,58 @@ If the input is already natural spoken prose, return it unchanged."""
 # Common acronyms that should NOT trigger LLM normalization
 # ---------------------------------------------------------------------------
 
-_COMMON_ACRONYMS = frozenset({
-    "AI", "API", "CEO", "CFO", "CIA", "CTO", "CV", "DNS", "EU", "FAQ",
-    "FBI", "GDP", "GPS", "GPU", "HR", "HTML", "HTTP", "ID", "IEEE", "IP",
-    "IT", "JSON", "MBA", "NASA", "NATO", "NFL", "NGO", "NHS", "NSA",
-    "OECD", "OK", "OS", "PDF", "PhD", "PR", "RAM", "SQL", "SSH", "TV",
-    "UK", "UN", "URL", "US", "USA", "USB", "VPN", "WHO", "XML",
-})
+_COMMON_ACRONYMS = frozenset(
+    {
+        "AI",
+        "API",
+        "CEO",
+        "CFO",
+        "CIA",
+        "CTO",
+        "CV",
+        "DNS",
+        "EU",
+        "FAQ",
+        "FBI",
+        "GDP",
+        "GPS",
+        "GPU",
+        "HR",
+        "HTML",
+        "HTTP",
+        "ID",
+        "IEEE",
+        "IP",
+        "IT",
+        "JSON",
+        "MBA",
+        "NASA",
+        "NATO",
+        "NFL",
+        "NGO",
+        "NHS",
+        "NSA",
+        "OECD",
+        "OK",
+        "OS",
+        "PDF",
+        "PhD",
+        "PR",
+        "RAM",
+        "SQL",
+        "SSH",
+        "TV",
+        "UK",
+        "UN",
+        "URL",
+        "US",
+        "USA",
+        "USB",
+        "VPN",
+        "WHO",
+        "XML",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Heuristic gate: does this text need LLM normalization?
@@ -136,10 +181,12 @@ class LlmNormalizer:
                     type(expansion).__name__,
                 )
                 continue
-            self._glossary.append((
-                re.compile(r"\b" + re.escape(str(abbr)) + r"\b"),
-                expansion,
-            ))
+            self._glossary.append(
+                (
+                    re.compile(r"\b" + re.escape(str(abbr)) + r"\b"),
+                    expansion,
+                )
+            )
 
     def _apply_glossary(self, text: str) -> str:
         """Apply user-defined acronym expansions deterministically."""
