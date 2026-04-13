@@ -22,6 +22,9 @@ source .venv-dev/bin/activate
 pip install -e .[dev,test]
 ```
 
+The `pip install -e .` step registers version metadata via `setuptools_scm`.
+If you skip it, `lexaloud.__version__` falls back to `"0.0.0+unknown"`.
+
 Run the test suite:
 
 ```bash
