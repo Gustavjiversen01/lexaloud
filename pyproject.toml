@@ -78,6 +78,9 @@ test = [
 dbus = [
     "dbus-fast>=2.0",
 ]
+llm = [
+    "llama-cpp-python>=0.3",
+]
 
 [project.urls]
 Homepage = "https://github.com/Gustavjiversen01/lexaloud"
