@@ -303,21 +303,38 @@ $PIP install --upgrade pip >/dev/null
 echo "installing pinned runtime dependencies from $(basename "$LOCK")"
 # Install --no-deps kokoro-onnx separately so pip doesn't re-resolve it and
 # pull in the broken [gpu]-extra coexistence state Spike 0 flagged.
-KOKORO_PIN="$(grep -E '^kokoro-onnx==' "$LOCK" || true)"
-if [[ -z "$KOKORO_PIN" ]]; then
+#
+# The lockfiles contain --hash=sha256:... lines for supply-chain integrity.
+# With hashed lockfiles, each package entry spans multiple lines:
+#   kokoro-onnx==0.5.0 \
+#       --hash=sha256:abc123 \
+#       --hash=sha256:def456
+# The awk filters below handle these multi-line entries correctly.
+
+# Check that kokoro-onnx is present in the lockfile.
+if ! grep -q '^kokoro-onnx==' "$LOCK"; then
   echo "ERROR: kokoro-onnx pin missing from $LOCK" >&2
   exit 1
 fi
 
-# Stage the filtered lockfile before registering the trap so that a signal
-# arriving between mktemp and trap can't leak the file.
+# Stage temp files before registering the trap so a signal arriving between
+# mktemp and trap can't leak them.
 LOCK_NO_KOKORO=""
-trap '[[ -n "${LOCK_NO_KOKORO:-}" ]] && rm -f "$LOCK_NO_KOKORO"' EXIT
-LOCK_NO_KOKORO="$(mktemp)"
-grep -v -E '^kokoro-onnx==' "$LOCK" > "$LOCK_NO_KOKORO"
+KOKORO_REQ=""
+trap '[[ -n "${LOCK_NO_KOKORO:-}" ]] && rm -f "$LOCK_NO_KOKORO"; [[ -n "${KOKORO_REQ:-}" ]] && rm -f "$KOKORO_REQ"' EXIT
 
-$PIP install -r "$LOCK_NO_KOKORO"
-$PIP install --no-deps "$KOKORO_PIN"
+# Filter OUT kokoro-onnx (and its hash continuation lines) for the main install.
+LOCK_NO_KOKORO="$(mktemp)"
+awk '/^kokoro-onnx==/{skip=1; next} /^[^ \t]/{skip=0} !skip' "$LOCK" > "$LOCK_NO_KOKORO"
+
+# Extract the full kokoro-onnx entry (package line + all hash lines) for
+# the separate --no-deps install. pip only accepts --hash inside -r files,
+# not on the command line.
+KOKORO_REQ="$(mktemp)"
+awk '/^kokoro-onnx==/{found=1} found{print} found && !/\\$/{if(found) exit}' "$LOCK" > "$KOKORO_REQ"
+
+$PIP install --require-hashes -r "$LOCK_NO_KOKORO"
+$PIP install --no-deps --require-hashes -r "$KOKORO_REQ"
 
 # --- install the lexaloud package --------------------------------------
 
