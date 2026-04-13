@@ -16,10 +16,10 @@ import pytest
 
 dbus_fast = pytest.importorskip("dbus_fast", reason="dbus-fast not installed")
 
-from lexaloud.config import Config
-from lexaloud.player import Player
-from lexaloud.preprocessor import PreprocessorConfig
-from lexaloud.shortcuts import ShortcutsAdapter
+from lexaloud.config import Config  # noqa: E402
+from lexaloud.player import Player  # noqa: E402
+from lexaloud.preprocessor import PreprocessorConfig  # noqa: E402
+from lexaloud.shortcuts import ShortcutsAdapter  # noqa: E402
 
 
 def _make_player():

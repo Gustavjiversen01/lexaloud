@@ -173,7 +173,7 @@ ignore_missing_imports = true
 # names, invalid types, and property redefinitions. These are inherent to
 # dbus-fast's design, not bugs in our code.
 module = ["lexaloud.mpris", "lexaloud.shortcuts"]
-disable_error_code = ["name-defined", "valid-type", "no-redef"]
+disable_error_code = ["name-defined", "valid-type", "no-redef", "attr-defined"]
 
 [tool.coverage.run]
 source = ["src/lexaloud"]

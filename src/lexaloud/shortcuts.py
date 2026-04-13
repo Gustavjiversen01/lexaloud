@@ -105,7 +105,7 @@ class ShortcutsAdapter:
 
         # Subscribe to Activated signal before registering shortcuts
         try:
-            iface.on_activated(self._on_activated)  # type: ignore[attr-defined]
+            iface.on_activated(self._on_activated)
             self._signal_handler = iface
         except Exception as e:
             log.debug("could not subscribe to Activated signal: %s", e)
@@ -125,7 +125,7 @@ class ShortcutsAdapter:
                 (sid, {"description": Variant("s", desc)}) for sid, _name, desc in SHORTCUTS
             ]
 
-            await iface.call_bind_shortcuts(  # type: ignore[attr-defined]
+            await iface.call_bind_shortcuts(
                 session_handle,
                 shortcut_descriptors,
                 "",  # parent_window
