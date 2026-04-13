@@ -33,7 +33,8 @@ def test_full_pipeline_runs_stages_in_order():
     # i.e. expanded
     assert "that is" in joined
     # (see Fig. 3) NOT stripped (parenthetical citations off by default)
-    assert "Fig. 3" in joined
+    # Fig. is expanded to Figure by academic abbreviation expansion
+    assert "Figure 3" in joined
 
 
 def test_empty_input_returns_empty_list():

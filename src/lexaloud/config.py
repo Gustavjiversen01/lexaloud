@@ -99,6 +99,7 @@ class PreprocessorCfg:
     strip_numeric_bracket_citations: bool = True
     strip_parenthetical_citations: bool = False
     expand_latin_abbreviations: bool = True
+    expand_academic_abbreviations: bool = True
     pdf_cleanup: bool = True
 
 

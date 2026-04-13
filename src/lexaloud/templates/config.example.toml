@@ -41,6 +41,8 @@ strip_numeric_bracket_citations = true
 strip_parenthetical_citations = false
 # Expand Latin abbreviations (e.g., i.e., etc.) to full forms
 expand_latin_abbreviations = true
+# Expand academic abbreviations (Fig., Eq., Sec., Thm., etc.)
+expand_academic_abbreviations = true
 # PDF-style text cleanup (hyphenation across line breaks, etc.)
 pdf_cleanup = true
 

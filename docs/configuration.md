@@ -44,6 +44,7 @@ systemctl --user restart lexaloud.service
 | `strip_numeric_bracket_citations` | `true` | Strip `[3]` or `[1-4]` style citations. |
 | `strip_parenthetical_citations` | `false` | Strip `(Smith 2023)` style citations. Off by default because it can over-match ordinary parentheticals. |
 | `expand_latin_abbreviations` | `true` | Expand `i.e.`, `e.g.`, `etc.` to full forms. |
+| `expand_academic_abbreviations` | `true` | Expand `Fig.`, `Eq.`, `Sec.`, `Thm.`, `w.r.t.`, `i.i.d.`, etc. to full forms. Helps pysbd sentence splitting and TTS pronunciation. |
 | `pdf_cleanup` | `true` | Handle line-break hyphenation and other PDF paste artifacts. |
 
 ### `[advanced]`
