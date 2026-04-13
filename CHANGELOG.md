@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Expanded rule-based preprocessing** — academic abbreviation expansion
+  (Fig., Eq., Sec., Thm., w.r.t., i.i.d., 25+ patterns), number-to-words
+  normalization (ordinals, cardinals, decimals, percentages, currency,
+  years), URL/email normalization, and Unicode math symbol expansion
+  (~80 symbols including Greek letters, operators, superscripts).
+- **LLM-based text normalization** (optional, off by default) — uses a
+  local ~1.5B parameter model (Qwen2.5-1.5B-Instruct Q4_K_M via
+  `llama-cpp-python`) to normalize edge cases the rules can't handle:
+  domain-specific acronyms, complex math, OCR artifacts, tables. Includes
+  a user-defined glossary for deterministic acronym expansion, a heuristic
+  gate that skips the LLM for plain prose, and hallucination mitigation
+  (preamble stripping, output length validation). Enable via
+  `[normalizer] enabled = true` in config.toml or the control window.
+  Requires `pip install lexaloud[llm]`.
+
 ## [0.3.0] - 2026-04-13
 
 ### Added

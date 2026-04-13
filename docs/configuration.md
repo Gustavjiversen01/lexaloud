@@ -56,6 +56,49 @@ systemctl --user restart lexaloud.service
 |-----|---------|-------------|
 | `overlay` | `false` | Show the floating overlay when speaking. The overlay is an always-on-top sentence caption bar. Enable via `overlay = true` under `[advanced]` or from the control window's Settings tab. On wlroots compositors and KWin, the overlay uses `gtk-layer-shell` for proper stacking; on X11 and GNOME Wayland it falls back to a `NOTIFICATION` type hint. |
 
+### `[normalizer]`
+
+LLM-based text normalization for edge cases the rule-based pipeline
+can't handle (complex math, domain-specific acronyms, OCR artifacts,
+tables). **Off by default.** Requires:
+
+1. Install the optional dependency: `pip install lexaloud[llm]`
+2. Download the model: `lexaloud download-models --llm`
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `enabled` | `false` | Enable LLM text normalization. Toggle from the control window or edit `config.toml` directly. |
+| `model_path` | `""` | Absolute path to a GGUF model file. Empty = auto-detect in `~/.cache/lexaloud/models/`. |
+| `model_repo` | `"Qwen/Qwen2.5-1.5B-Instruct-GGUF"` | HuggingFace repository for the default model. |
+| `model_file` | `"qwen2.5-1.5b-instruct-q4_k_m.gguf"` | Filename within the repository. |
+| `n_gpu_layers` | `-1` | Number of model layers to offload to GPU. `-1` = all layers (recommended). Set `0` for CPU-only inference. |
+| `n_ctx` | `4096` | Context window size in tokens. |
+| `temperature` | `0.0` | Sampling temperature. `0.0` = greedy/deterministic (recommended for normalization). |
+| `max_output_ratio` | `1.5` | Maximum output tokens = input tokens x this ratio. Prevents runaway generation. |
+
+#### `[normalizer.glossary]`
+
+User-defined acronym expansions applied **deterministically before** the
+LLM runs. Each key is matched as a whole word; the value is the spoken
+replacement. This is the most reliable way to handle domain-specific
+acronyms.
+
+```toml
+[normalizer.glossary]
+MAPPO = "Multi-Agent Proximal Policy Optimization"
+GCBF = "Graph Control Barrier Function"
+CBF = "Control Barrier Function"
+```
+
+#### VRAM usage
+
+The default model (Qwen2.5-1.5B Q4_K_M) uses ~1.2 GB VRAM. Combined
+with Kokoro-82M (~500 MB), total GPU memory usage is ~1.7 GB. This fits
+comfortably on any 8 GB+ GPU.
+
+Set `n_gpu_layers = 0` to run the LLM on CPU only (slower but no
+additional VRAM usage).
+
 ## Voice selection
 
 The control window (`lexaloud-control` or the tray menu → Control

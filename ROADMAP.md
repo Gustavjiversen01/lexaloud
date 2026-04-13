@@ -27,7 +27,14 @@ feedback.
 - ~~**Strict mypy**~~ — 0 errors, CI enforcement (no continue-on-error)
 - ~~**Desktop-aware keybindings**~~ — GNOME, XFCE, KDE (read-only), null backend
 
-## v0.3.x / v0.4.0
+## v0.3.x (done)
+
+- ~~**Expanded rule-based preprocessing**~~ — academic abbreviations,
+  number-to-words, URL/email, Unicode math symbols
+- ~~**LLM-based text normalization**~~ — optional local LLM (Qwen2.5-1.5B)
+  for domain acronyms, complex math, OCR artifacts, tables
+
+## v0.4.0
 
 Remaining items and new work.
 
@@ -45,8 +52,6 @@ these.
   overlay
 - **Browser extension** — page-level selection bridge for Firefox and
   Chromium that doesn't depend on the PRIMARY selection protocol
-- **LLM-based text normalization** — local-only expansion of acronyms,
-  equations, and edge-case abbreviations before TTS
 - **Additional providers** — Piper (CPU-friendly), Chatterbox, other
   local neural TTS backends
 - **Flatpak / Snap / AppImage / AUR / COPR** packaging — assuming
