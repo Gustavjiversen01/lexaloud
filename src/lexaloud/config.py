@@ -107,15 +107,39 @@ class PreprocessorCfg:
 
 
 @dataclass
+class NormalizerConfig:
+    """LLM-based text normalization. Off by default; requires the ``[llm]``
+    optional extra (``pip install lexaloud[llm]``) and a downloaded GGUF model."""
+
+    enabled: bool = False
+    model_path: str = ""  # empty = auto-detect in cache dir
+    model_repo: str = "Qwen/Qwen2.5-1.5B-Instruct-GGUF"
+    model_file: str = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    n_gpu_layers: int = -1  # -1 = offload all layers to GPU
+    n_ctx: int = 4096
+    temperature: float = 0.0
+    max_output_ratio: float = 1.5  # max_tokens = input_tokens * this
+    glossary: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class Config:
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     daemon: DaemonConfig = field(default_factory=DaemonConfig)
     provider: ProviderConfig = field(default_factory=ProviderConfig)
     preprocessor: PreprocessorCfg = field(default_factory=PreprocessorCfg)
     advanced: AdvancedConfig = field(default_factory=AdvancedConfig)
+    normalizer: NormalizerConfig = field(default_factory=NormalizerConfig)
 
 
-_NESTED_TYPES = (CaptureConfig, DaemonConfig, ProviderConfig, PreprocessorCfg, AdvancedConfig)
+_NESTED_TYPES = (
+    CaptureConfig,
+    DaemonConfig,
+    ProviderConfig,
+    PreprocessorCfg,
+    AdvancedConfig,
+    NormalizerConfig,
+)
 
 
 def _merge(dc, data: dict) -> None:
@@ -165,4 +189,6 @@ def load_config(path: Path | None = None) -> Config:
         _merge(cfg.preprocessor, data["preprocessor"])
     if isinstance(data.get("advanced"), dict):
         _merge(cfg.advanced, data["advanced"])
+    if isinstance(data.get("normalizer"), dict):
+        _merge(cfg.normalizer, data["normalizer"])
     return cfg
