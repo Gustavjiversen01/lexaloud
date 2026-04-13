@@ -60,9 +60,7 @@ async def test_plain_text_passthrough(normalizer):
 
 async def test_llm_handles_acronyms(normalizer):
     """The LLM should attempt to expand unknown acronyms."""
-    result = await normalizer.normalize(
-        "We evaluate MAPPO and GCBF on the SMAC benchmark."
-    )
+    result = await normalizer.normalize("We evaluate MAPPO and GCBF on the SMAC benchmark.")
     # The LLM should modify the text in some way
     assert result != "We evaluate MAPPO and GCBF on the SMAC benchmark."
     # Core content should be preserved
@@ -71,8 +69,6 @@ async def test_llm_handles_acronyms(normalizer):
 
 async def test_llm_handles_math(normalizer):
     r"""The LLM should normalize LaTeX-like math."""
-    result = await normalizer.normalize(
-        r"Consider $\frac{1}{2}$ of the total."
-    )
+    result = await normalizer.normalize(r"Consider $\frac{1}{2}$ of the total.")
     # Should mention "half" or "one over two" or similar
     assert "frac" not in result.lower()
