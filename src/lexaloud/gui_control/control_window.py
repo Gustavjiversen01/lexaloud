@@ -126,6 +126,15 @@ class ControlWindow(Gtk.Window):
         )
         advanced_box.pack_start(self.overlay_toggle, False, False, 0)
 
+        self.llm_toggle = Gtk.CheckButton(label="Enable LLM text normalization")
+        self.llm_toggle.set_tooltip_text(
+            "Use a local LLM to normalize complex text (acronyms, equations, "
+            "tables) before speech synthesis. Requires ~1.2 GB additional VRAM.\n"
+            "Install with: pip install lexaloud[llm]\n"
+            "Download model: lexaloud download-models --llm"
+        )
+        advanced_box.pack_start(self.llm_toggle, False, False, 0)
+
         # Buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         button_box.set_halign(Gtk.Align.END)
@@ -179,6 +188,8 @@ class ControlWindow(Gtk.Window):
         # Advanced settings
         advanced = cfg.get("advanced", {}) if isinstance(cfg, dict) else {}
         self.overlay_toggle.set_active(bool(advanced.get("overlay", False)))
+        normalizer = cfg.get("normalizer", {}) if isinstance(cfg, dict) else {}
+        self.llm_toggle.set_active(bool(normalizer.get("enabled", False)))
 
     def _on_speed_changed(self, adjustment) -> None:
         v = adjustment.get_value()
@@ -224,6 +235,8 @@ class ControlWindow(Gtk.Window):
         provider["speed"] = speed
         advanced = cfg.setdefault("advanced", {})
         advanced["overlay"] = self.overlay_toggle.get_active()
+        normalizer = cfg.setdefault("normalizer", {})
+        normalizer["enabled"] = self.llm_toggle.get_active()
         try:
             _save_config_dict(cfg)
         except Exception as e:  # noqa: BLE001
