@@ -3,6 +3,23 @@
 Things that will trip users (or future-you). Recorded here so nobody has to
 rediscover them.
 
+## Pasting from MathJax / KaTeX pages duplicates math
+
+KaTeX and MathJax render each equation as two overlapping DOM layers:
+a visually-positioned stacked form (one atom per line) and a compact
+inline form used by screen readers. Browser selection captures BOTH,
+which caused every math symbol to be read twice before the dedupe
+landed in the preprocessor.
+
+The preprocessor's `dedupe_mathjax_selection` stage (on by default
+under `[preprocessor] dedupe_mathjax_selection = true`) detects the
+stacked-then-compact pattern and removes the stacked copy, also
+stripping the U+200B zero-width spaces KaTeX injects around
+subscripts. On pages where the heuristic misses (a rarer layout), copy
+the selection to the clipboard with `Ctrl+C` first and trigger
+`speak-clipboard` — some browsers/pages produce less duplication via
+the clipboard than via the PRIMARY selection.
+
 ## GNOME Wayland + primary selection
 
 On Ubuntu GNOME Wayland, `wl-paste --primary` may return empty for some

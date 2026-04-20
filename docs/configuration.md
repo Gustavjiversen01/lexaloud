@@ -39,8 +39,14 @@ systemctl --user restart lexaloud.service
 
 ### `[preprocessor]`
 
+Stages run in the listed order. `dedupe_mathjax_selection` and
+`strip_markdown` are structural cleanup passes that must run before any
+character-substitution stage, so their ordering is fixed.
+
 | Key | Default | Description |
 |-----|---------|-------------|
+| `dedupe_mathjax_selection` | `true` | Deduplicate math captured from rendered MathJax/KaTeX pages. When you select text on such a page, the browser captures each expression twice (stacked one-char-per-line + compact) with U+200B zero-width spaces between; this detector removes the stacked copy. No-op on non-MathJax input. |
+| `strip_markdown` | `true` | Convert markdown formatting (headings, lists, emphasis, tables, code blocks, links, images) into flowing prose. Code blocks are announced as `"Code block omitted."` by default; links show only their text. Uses `markdown-it-py` for CommonMark-compliant parsing. Fast-path no-op when the input has no markdown markers. |
 | `strip_numeric_bracket_citations` | `true` | Strip `[3]` or `[1-4]` style citations. |
 | `strip_parenthetical_citations` | `false` | Strip `(Smith 2023)` style citations. Off by default because it can over-match ordinary parentheticals. |
 | `expand_latin_abbreviations` | `true` | Expand `i.e.`, `e.g.`, `etc.` to full forms. |
