@@ -26,6 +26,7 @@ VENV_DEFAULT="$HOME/.local/share/lexaloud/venv"
 VENV="${LEXALOUD_VENV:-$VENV_DEFAULT}"
 
 BACKEND="auto"
+WITH_MATH_SPEECH=0
 
 # --- parse arguments ----------------------------------------------------
 
@@ -39,13 +40,17 @@ while (( "$#" )); do
       BACKEND="${1#*=}"
       shift
       ;;
+    --with-math-speech)
+      WITH_MATH_SPEECH=1
+      shift
+      ;;
     -h|--help)
       sed -n '4,22p' "$0"
       exit 0
       ;;
     *)
       echo "Unknown argument: $1" >&2
-      echo "Usage: $0 [--backend cpu|cuda12|auto]" >&2
+      echo "Usage: $0 [--backend cpu|cuda12|auto] [--with-math-speech]" >&2
       exit 2
       ;;
   esac
@@ -363,9 +368,67 @@ else
   fi
 fi
 
+# --- optional: Speech Rule Engine (SRE) for LaTeX-to-speech -------------
+
+if (( WITH_MATH_SPEECH == 1 )); then
+  echo
+  echo "--- installing Speech Rule Engine (SRE) for LaTeX-to-speech ---"
+
+  if ! command -v node >/dev/null 2>&1; then
+    cat >&2 <<NODE_MISSING
+ERROR: --with-math-speech requires node (>=18).
+Install it with one of:
+  sudo apt install nodejs npm          # Debian/Ubuntu
+  sudo dnf install nodejs npm          # Fedora
+  sudo pacman -S nodejs npm            # Arch
+NODE_MISSING
+    exit 1
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    cat >&2 <<NPM_MISSING
+ERROR: --with-math-speech requires npm.
+Install it with one of:
+  sudo apt install npm
+  sudo dnf install npm
+  sudo pacman -S npm
+NPM_MISSING
+    exit 1
+  fi
+
+  NODE_MAJOR="$(node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || echo 0)"
+  if (( NODE_MAJOR < 18 )); then
+    echo "ERROR: --with-math-speech requires Node.js >= 18 (found major=$NODE_MAJOR)" >&2
+    exit 1
+  fi
+
+  SRE_PREFIX="$(dirname "$VENV")/sre"
+  echo "installing speech-rule-engine@4.1.3 into $SRE_PREFIX"
+  mkdir -p "$SRE_PREFIX"
+  npm install --prefix "$SRE_PREFIX" speech-rule-engine@4.1.3
+
+  # Symlink the sre binary into the venv's bin directory so the daemon
+  # can resolve it via Path(sys.executable).parent / "sre" without
+  # depending on PATH (systemd unit runs with a minimal environment).
+  SRE_BIN="$SRE_PREFIX/node_modules/.bin/sre"
+  if [[ ! -x "$SRE_BIN" ]]; then
+    echo "ERROR: expected sre binary not found at $SRE_BIN" >&2
+    exit 1
+  fi
+  ln -sf "$SRE_BIN" "$VENV/bin/sre"
+  echo "symlinked: $VENV/bin/sre -> $SRE_BIN"
+  echo
+  echo "Enable via config.toml:"
+  echo "  [sre_latex]"
+  echo "  enabled = true"
+  echo "  domain = \"clearspeak\"    # or \"mathspeak\""
+fi
+
 echo
 echo "=== install complete ==="
 echo "backend: $BACKEND"
+if (( WITH_MATH_SPEECH == 1 )); then
+  echo "math-speech: speech-rule-engine@4.1.3 installed"
+fi
 echo
 echo "Next:"
 echo "  $VENV/bin/lexaloud setup"

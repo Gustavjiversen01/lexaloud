@@ -77,6 +77,25 @@ to use the CUDA backend. See:
 - https://docs.nvidia.com/cuda/eula/index.html
 - https://developer.nvidia.com/cudnn-license
 
+## Optional runtime dependencies
+
+### Speech Rule Engine (LaTeX-to-speech)
+
+When a user opts in with `scripts/install.sh --with-math-speech`,
+Lexaloud installs [`speech-rule-engine@4.1.3`](https://github.com/Speech-Rule-Engine/speech-rule-engine)
+via `npm` into `~/.local/share/lexaloud/sre/node_modules/` and
+symlinks its `sre` binary into the venv's `bin/` directory.
+
+- License: **Apache-2.0**
+- Installed by: user opt-in via `--with-math-speech` (never as part of
+  the default install)
+- Not present in `requirements-lock.{cuda12,cpu}.txt` — SRE is a Node
+  package, not a Python one. The Python lockfiles are not affected.
+- Source: https://github.com/Speech-Rule-Engine/speech-rule-engine
+
+See [`docs/install/math-speech.md`](docs/install/math-speech.md) for
+the installation walkthrough.
+
 ## Transitive dependencies
 
 A full list with versions can be regenerated at any time:
