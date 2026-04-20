@@ -41,6 +41,7 @@ No such drop-in replacement existed at the time of this release.
 | `pysbd`            | 0.3.4     | MIT                      | Sentence boundary detection |
 | `sounddevice`      | 0.5.5     | MIT                      | Audio output via PortAudio |
 | `numpy`            | 2.4.4     | BSD-3-Clause             | Audio sample arrays |
+| `markdown-it-py`   | 3.0+      | MIT                      | Markdown stripping in the preprocessor |
 
 ## Kokoro-82M model weights
 

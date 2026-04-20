@@ -97,6 +97,7 @@ class ProviderConfig:
 @dataclass
 class PreprocessorCfg:
     dedupe_mathjax_selection: bool = True
+    strip_markdown: bool = True
     strip_numeric_bracket_citations: bool = True
     strip_parenthetical_citations: bool = False
     expand_latin_abbreviations: bool = True

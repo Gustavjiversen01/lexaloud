@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from .abbreviations import expand_latin_abbreviations
 from .academic_abbreviations import expand_academic_abbreviations
 from .citations import strip_numeric_bracket_citations, strip_parenthetical_citations
+from .markdown_strip import markdown_to_tts_prose
 from .mathjax_dedupe import dedupe_mathjax_selection
 from .numbers import normalize_numbers
 from .pdf_cleanup import clean_pdf_paste
@@ -22,6 +23,7 @@ from .symbols import normalize_math_symbols, normalize_urls_emails
 @dataclass
 class PreprocessorConfig:
     dedupe_mathjax_selection: bool = True
+    strip_markdown: bool = True
     strip_numeric_bracket_citations: bool = True
     strip_parenthetical_citations: bool = False
     expand_latin_abbreviations: bool = True
@@ -40,6 +42,10 @@ def preprocess(text: str, config: PreprocessorConfig | None = None) -> list[str]
     # it needs the raw newline structure to detect stacked blocks.
     if cfg.dedupe_mathjax_selection:
         text = dedupe_mathjax_selection(text)
+    # Markdown next — needs structural markers intact before character
+    # substitutions mangle them.
+    if cfg.strip_markdown:
+        text = markdown_to_tts_prose(text)
     # Math symbols next (before PDF cleanup's NFKC flattens superscripts)
     if cfg.normalize_math_symbols:
         text = normalize_math_symbols(text)
@@ -79,6 +85,8 @@ async def preprocess_with_llm(
     # Rule-based stages (same order as preprocess())
     if cfg.dedupe_mathjax_selection:
         text = dedupe_mathjax_selection(text)
+    if cfg.strip_markdown:
+        text = markdown_to_tts_prose(text)
     if cfg.normalize_math_symbols:
         text = normalize_math_symbols(text)
     if cfg.pdf_cleanup:
@@ -113,6 +121,7 @@ __all__ = [
     "dedupe_mathjax_selection",
     "expand_academic_abbreviations",
     "expand_latin_abbreviations",
+    "markdown_to_tts_prose",
     "normalize_math_symbols",
     "normalize_numbers",
     "normalize_urls_emails",

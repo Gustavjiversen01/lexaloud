@@ -39,6 +39,10 @@ speed = 1.0
 # one-char-per-line, once compact) — this detector removes the stacked
 # copy. No-op on non-MathJax input.
 dedupe_mathjax_selection = true
+# Strip markdown formatting (headings, lists, emphasis, tables, code
+# blocks, links, images). Converts to natural prose suitable for TTS.
+# Fast-path no-op when the input contains no markdown markers.
+strip_markdown = true
 # Strip numeric bracket citations like [3] or [1-4]
 strip_numeric_bracket_citations = true
 # Strip author-year parenthetical citations like (Smith 2023) — off by
