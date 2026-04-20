@@ -103,6 +103,7 @@ def build_components(cfg: Config | None = None) -> DaemonComponents:
     sink: AudioSink = SoundDeviceSink()
     player = Player(provider=provider, sink=sink, ready_queue_depth=cfg.daemon.ready_queue_depth)
     preproc_config = PreprocessorConfig(
+        dedupe_mathjax_selection=cfg.preprocessor.dedupe_mathjax_selection,
         strip_numeric_bracket_citations=cfg.preprocessor.strip_numeric_bracket_citations,
         strip_parenthetical_citations=cfg.preprocessor.strip_parenthetical_citations,
         expand_latin_abbreviations=cfg.preprocessor.expand_latin_abbreviations,

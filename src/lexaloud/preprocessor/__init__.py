@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from .abbreviations import expand_latin_abbreviations
 from .academic_abbreviations import expand_academic_abbreviations
 from .citations import strip_numeric_bracket_citations, strip_parenthetical_citations
+from .mathjax_dedupe import dedupe_mathjax_selection
 from .numbers import normalize_numbers
 from .pdf_cleanup import clean_pdf_paste
 from .segmenter import split_sentences
@@ -20,6 +21,7 @@ from .symbols import normalize_math_symbols, normalize_urls_emails
 
 @dataclass
 class PreprocessorConfig:
+    dedupe_mathjax_selection: bool = True
     strip_numeric_bracket_citations: bool = True
     strip_parenthetical_citations: bool = False
     expand_latin_abbreviations: bool = True
@@ -34,7 +36,11 @@ def preprocess(text: str, config: PreprocessorConfig | None = None) -> list[str]
     """Run the full pipeline and return a list of sentences."""
     cfg = config or PreprocessorConfig()
 
-    # Math symbols first (before PDF cleanup's NFKC flattens superscripts)
+    # MathJax dedupe must run before any whitespace-collapsing stage —
+    # it needs the raw newline structure to detect stacked blocks.
+    if cfg.dedupe_mathjax_selection:
+        text = dedupe_mathjax_selection(text)
+    # Math symbols next (before PDF cleanup's NFKC flattens superscripts)
     if cfg.normalize_math_symbols:
         text = normalize_math_symbols(text)
     if cfg.pdf_cleanup:
@@ -71,6 +77,8 @@ async def preprocess_with_llm(
     cfg = config or PreprocessorConfig()
 
     # Rule-based stages (same order as preprocess())
+    if cfg.dedupe_mathjax_selection:
+        text = dedupe_mathjax_selection(text)
     if cfg.normalize_math_symbols:
         text = normalize_math_symbols(text)
     if cfg.pdf_cleanup:
@@ -102,6 +110,7 @@ __all__ = [
     "preprocess",
     "preprocess_with_llm",
     "clean_pdf_paste",
+    "dedupe_mathjax_selection",
     "expand_academic_abbreviations",
     "expand_latin_abbreviations",
     "normalize_math_symbols",

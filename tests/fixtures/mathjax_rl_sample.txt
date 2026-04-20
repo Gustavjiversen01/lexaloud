@@ -1,0 +1,32 @@
+Reinforcement Learning Problem
+RL systems are defined by a tuple of elements 
+{
+X
+,
+U
+,
+T
+,
+R
+,
+ρ
+0
+}
+{X,U,T,R,ρ 
+0
+​
+ }. Here 
+X
+X stands for the set of possible agent states i.e. 
+x
+∈
+X
+x∈X, for instance the position and velocity of the child and bike in the above example. 
+u
+∈
+U
+u∈U is the action taken to steer the evolution of the state, e.g., the forces exerted on the bike pedals. Numerically 
+x
+x and 
+u
+u are usually vectors whose entries include quantities that the agent can acquire and implement.
