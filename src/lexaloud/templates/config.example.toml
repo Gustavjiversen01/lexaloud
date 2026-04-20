@@ -95,3 +95,17 @@ overlay = false
 # [normalizer.glossary]
 # MAPPO = "Multi-Agent Proximal Policy Optimization"
 # GCBF = "Graph Control Barrier Function"
+
+# --- Speech Rule Engine LaTeX-to-speech (optional) ---
+# Requires Node.js >=18 and speech-rule-engine@4.1.3, installed via
+#   scripts/install.sh --with-math-speech
+# When enabled, LaTeX spans ($...$, $$...$$, \begin{equation}...) in
+# captured text get replaced with natural English ("x squared",
+# "a over b", "sum over t of r of x sub t"). Graceful no-op if the
+# sre binary is not resolvable. Off by default.
+#
+# [sre_latex]
+# enabled = false
+# timeout_s = 10.0
+# domain = "clearspeak"   # "clearspeak" or "mathspeak"
+# style = ""               # empty = omit -s flag; try "verbose" or "short"

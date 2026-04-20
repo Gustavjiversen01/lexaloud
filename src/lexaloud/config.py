@@ -109,6 +109,21 @@ class PreprocessorCfg:
 
 
 @dataclass
+class SreLatexConfig:
+    """Speech Rule Engine LaTeX-to-speech bridge. Optional; off by default.
+
+    Requires Node.js ≥18 and ``speech-rule-engine@4.1.3`` installed via
+    ``scripts/install.sh --with-math-speech``. When the ``sre`` binary
+    is not resolvable the preprocessor stage is a no-op.
+    """
+
+    enabled: bool = False
+    timeout_s: float = 10.0
+    domain: str = "clearspeak"  # "clearspeak" or "mathspeak"
+    style: str = ""  # empty string = omit -s flag
+
+
+@dataclass
 class NormalizerConfig:
     """LLM-based text normalization. Off by default; requires the ``[llm]``
     optional extra (``pip install lexaloud[llm]``) and a downloaded GGUF model."""
@@ -132,6 +147,7 @@ class Config:
     preprocessor: PreprocessorCfg = field(default_factory=PreprocessorCfg)
     advanced: AdvancedConfig = field(default_factory=AdvancedConfig)
     normalizer: NormalizerConfig = field(default_factory=NormalizerConfig)
+    sre_latex: SreLatexConfig = field(default_factory=SreLatexConfig)
 
 
 _NESTED_TYPES = (
@@ -141,6 +157,7 @@ _NESTED_TYPES = (
     PreprocessorCfg,
     AdvancedConfig,
     NormalizerConfig,
+    SreLatexConfig,
 )
 
 
@@ -193,4 +210,6 @@ def load_config(path: Path | None = None) -> Config:
         _merge(cfg.advanced, data["advanced"])
     if isinstance(data.get("normalizer"), dict):
         _merge(cfg.normalizer, data["normalizer"])
+    if isinstance(data.get("sre_latex"), dict):
+        _merge(cfg.sre_latex, data["sre_latex"])
     return cfg
