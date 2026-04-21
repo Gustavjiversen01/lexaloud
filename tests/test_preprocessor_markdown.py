@@ -200,3 +200,21 @@ def test_less_than_three_not_html():
     """``<3`` (heart emoticon) must not trigger HTML tag detection."""
     text = "I heart <3 this library."
     assert markdown_to_tts_prose(text) == text
+
+
+def test_literal_pua_codepoints_in_input_survive():
+    """Rare but valid input containing the sentinel-wrapper PUA
+    codepoints must not be rewritten into LaTeX delimiters.
+
+    Per-call UUID-scoped sentinels guarantee (to 2**-128) that an
+    input cannot collide with our exact emitted sentinel strings.
+    """
+    # Input contains literal U+E000..U+E003 (PUA) in a markdown doc.
+    # These must round-trip unchanged.
+    pua = ""
+    text = f"# PUA test\n\nLiteral: {pua} end."
+    out = markdown_to_tts_prose(text)
+    assert pua in out
+    # And no spurious LaTeX delimiter got introduced.
+    for tok in ("\\(", "\\)", "\\[", "\\]"):
+        assert tok not in out

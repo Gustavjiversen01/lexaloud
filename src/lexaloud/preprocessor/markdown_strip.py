@@ -22,6 +22,7 @@ so later stages see clean prose.
 from __future__ import annotations
 
 import re
+import uuid
 
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
@@ -115,29 +116,52 @@ def _canonicalize(text: str) -> str:
     return text.strip()
 
 
-_SRE_LPAREN = ""
-_SRE_RPAREN = ""
-_SRE_LBRACK = ""
-_SRE_RBRACK = ""
+# Private Use Area codepoints (U+E000 and U+E001) used as sentinel
+# wrappers. Each per-call sentinel interpolates a fresh UUID so that a
+# malicious or unlucky input that already contains the wrapper
+# codepoints cannot collide with our exact emitted sentinel strings.
+_SENTINEL_L = "\ue000"  # Private Use Area
+_SENTINEL_R = "\ue001"
 
 
-def _protect_sre_delimiters(text: str) -> str:
+def _make_sentinels() -> tuple[str, str, str, str]:
+    """Return four fresh sentinel strings for ``\\(``, ``\\)``, ``\\[``, ``\\]``.
+
+    Each sentinel is ``\\uE000<kind><uuid>\\uE001`` where ``<uuid>``
+    is a fresh 32-char hex token. markdown-it-py treats the wrapper
+    PUA codepoints as text, so the whole sentinel survives parsing.
+    The UUID guarantees (to ~2**-128) that the sentinel is not
+    already present in the input, even if the input happens to
+    contain the wrapper codepoints literally.
+    """
+    token = uuid.uuid4().hex
+    return (
+        f"{_SENTINEL_L}LP{token}{_SENTINEL_R}",
+        f"{_SENTINEL_L}RP{token}{_SENTINEL_R}",
+        f"{_SENTINEL_L}LB{token}{_SENTINEL_R}",
+        f"{_SENTINEL_L}RB{token}{_SENTINEL_R}",
+    )
+
+
+def _protect_sre_delimiters(text: str, sentinels: tuple[str, str, str, str]) -> str:
     """Hide ``\\(``, ``\\)``, ``\\[``, ``\\]`` from markdown-it-py.
 
-    CommonMark treats ``\\(`` / ``\\[`` as backslash escapes and strips
-    the leading backslash during parsing, which destroys the LaTeX
-    math delimiters that the downstream SRE stage recognizes. We
-    substitute them with Private Use Area codepoints before parsing
+    CommonMark treats ``\\(`` / ``\\[`` as backslash escapes and
+    strips the leading backslash during parsing, which destroys the
+    LaTeX math delimiters the downstream SRE stage recognizes. We
+    substitute them with per-call UUID-scoped sentinels before parsing
     and restore them after canonicalization.
     """
-    text = text.replace("\\(", _SRE_LPAREN).replace("\\)", _SRE_RPAREN)
-    text = text.replace("\\[", _SRE_LBRACK).replace("\\]", _SRE_RBRACK)
+    lp, rp, lb, rb = sentinels
+    text = text.replace("\\(", lp).replace("\\)", rp)
+    text = text.replace("\\[", lb).replace("\\]", rb)
     return text
 
 
-def _restore_sre_delimiters(text: str) -> str:
-    text = text.replace(_SRE_LPAREN, "\\(").replace(_SRE_RPAREN, "\\)")
-    text = text.replace(_SRE_LBRACK, "\\[").replace(_SRE_RBRACK, "\\]")
+def _restore_sre_delimiters(text: str, sentinels: tuple[str, str, str, str]) -> str:
+    lp, rp, lb, rb = sentinels
+    text = text.replace(lp, "\\(").replace(rp, "\\)")
+    text = text.replace(lb, "\\[").replace(rb, "\\]")
     return text
 
 
@@ -158,7 +182,8 @@ def markdown_to_tts_prose(
     if not _MD_HINT.search(text):
         return text
 
-    text = _protect_sre_delimiters(text)
+    sentinels = _make_sentinels()
+    text = _protect_sre_delimiters(text, sentinels)
 
     md = MarkdownIt("commonmark")
     md.enable("table")
@@ -282,7 +307,7 @@ def markdown_to_tts_prose(
             # _inline_text (which ignores `html_inline` children).
             pass
 
-    return _restore_sre_delimiters(_canonicalize("".join(out)))
+    return _restore_sre_delimiters(_canonicalize("".join(out)), sentinels)
 
 
 __all__ = ["markdown_to_tts_prose"]
