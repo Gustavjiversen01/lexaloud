@@ -327,6 +327,44 @@ def test_preprocess_pipeline_passthrough_without_sre(monkeypatch):
     assert sents == ["Plain prose."]
 
 
+def test_pipeline_preserves_bracket_delimiters_through_markdown(monkeypatch):
+    """Regression: markdown stripping must not unescape \\(...\\) / \\[...\\].
+
+    CommonMark treats ``\\(`` as a backslash-escape for ``(``, which
+    would destroy the MathJax-style delimiters before SRE sees them.
+    ``markdown_to_tts_prose`` protects them with PUA sentinels.
+    """
+    from lexaloud.preprocessor import PreprocessorConfig, preprocess
+
+    monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)
+    monkeypatch.setattr(sre_latex, "sre_executable_path", lambda: "/fake/sre")
+
+    seen_inputs: list[bytes] = []
+
+    def _capture(cmd, *a, input=None, **kw):
+        seen_inputs.append(input)
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=b"SPOKEN", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", _capture)
+
+    cfg = PreprocessorConfig(sre_latex_enabled=True)
+
+    # Inline \(...\) inside markdown-heading-triggered document.
+    seen_inputs.clear()
+    preprocess(r"# Math" "\n\n" r"\(x_0\)", cfg)
+    assert seen_inputs == [b"x_0"]
+
+    # Display \[...\] inside markdown-heading-triggered document.
+    seen_inputs.clear()
+    preprocess(r"# Math" "\n\n" r"\[a + b\]", cfg)
+    assert seen_inputs == [b"a + b"]
+
+    # Mixed $...$ still works (sanity check we didn't regress).
+    seen_inputs.clear()
+    preprocess(r"# Math" "\n\n" r"$x_0$", cfg)
+    assert seen_inputs == [b"x_0"]
+
+
 def test_preprocess_pipeline_calls_sre_when_enabled(monkeypatch):
     """Pipeline with sre_latex_enabled=True invokes latex_to_speech."""
     from lexaloud.preprocessor import PreprocessorConfig, preprocess

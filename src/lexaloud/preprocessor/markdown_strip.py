@@ -115,6 +115,32 @@ def _canonicalize(text: str) -> str:
     return text.strip()
 
 
+_SRE_LPAREN = ""
+_SRE_RPAREN = ""
+_SRE_LBRACK = ""
+_SRE_RBRACK = ""
+
+
+def _protect_sre_delimiters(text: str) -> str:
+    """Hide ``\\(``, ``\\)``, ``\\[``, ``\\]`` from markdown-it-py.
+
+    CommonMark treats ``\\(`` / ``\\[`` as backslash escapes and strips
+    the leading backslash during parsing, which destroys the LaTeX
+    math delimiters that the downstream SRE stage recognizes. We
+    substitute them with Private Use Area codepoints before parsing
+    and restore them after canonicalization.
+    """
+    text = text.replace("\\(", _SRE_LPAREN).replace("\\)", _SRE_RPAREN)
+    text = text.replace("\\[", _SRE_LBRACK).replace("\\]", _SRE_RBRACK)
+    return text
+
+
+def _restore_sre_delimiters(text: str) -> str:
+    text = text.replace(_SRE_LPAREN, "\\(").replace(_SRE_RPAREN, "\\)")
+    text = text.replace(_SRE_LBRACK, "\\[").replace(_SRE_RBRACK, "\\]")
+    return text
+
+
 def markdown_to_tts_prose(
     text: str,
     *,
@@ -125,9 +151,14 @@ def markdown_to_tts_prose(
     """Convert markdown to plain prose for TTS.
 
     Returns the input unchanged if the heuristic detects no markdown.
+    Backslash-escaped LaTeX delimiters (``\\(``, ``\\)``, ``\\[``,
+    ``\\]``) are protected with Private Use Area sentinels during
+    parsing so they survive for the downstream SRE stage.
     """
     if not _MD_HINT.search(text):
         return text
+
+    text = _protect_sre_delimiters(text)
 
     md = MarkdownIt("commonmark")
     md.enable("table")
@@ -251,7 +282,7 @@ def markdown_to_tts_prose(
             # _inline_text (which ignores `html_inline` children).
             pass
 
-    return _canonicalize("".join(out))
+    return _restore_sre_delimiters(_canonicalize("".join(out)))
 
 
 __all__ = ["markdown_to_tts_prose"]
