@@ -6,11 +6,26 @@ handles `α ≤ β` → "alpha less than or equal to beta" but does not
 understand LaTeX structure — subscripts, fractions, sums, integrals,
 expectations — so dense academic prose can still sound nonsensical.
 
-The `[sre_latex]` stage sends every `$...$` / `$$...$$` /
-`\begin{equation}...\end{equation}` / `\begin{align}...\end{align}` span
-through [Speech Rule Engine](https://github.com/Speech-Rule-Engine/speech-rule-engine),
-the same Apache-2.0 engine that powers MathJax and ChromeVox. Examples
-of what it produces under the default `clearspeak` domain:
+The `[sre_latex]` stage sends every LaTeX math span through
+[Speech Rule Engine](https://github.com/Speech-Rule-Engine/speech-rule-engine).
+Recognized delimiters:
+
+- `$...$` — inline math (TeX/LaTeX)
+- `$$...$$` — display math (TeX/LaTeX)
+- `\(...\)` — inline math (MathJax convention)
+- `\[...\]` — display math (MathJax convention)
+- `\begin{equation}...\end{equation}`, and the starred variant `equation*`
+- `\begin{align}...\end{align}`, and the starred variant `align*`
+- `\begin{gather}...\end{gather}` / `gather*`
+- `\begin{multline}...\end{multline}` / `multline*`
+- `\begin{eqnarray}...\end{eqnarray}` / `eqnarray*`
+
+Markdown stripping (when enabled) protects the `\(...\)` / `\[...\]`
+delimiters from CommonMark's backslash-escape rule so they survive
+into the SRE stage — you don't need to disable `strip_markdown` to
+use them in a mixed-content document.
+SRE is the same Apache-2.0 engine that powers MathJax and ChromeVox.
+Examples of what it produces under the default `clearspeak` domain:
 
 | LaTeX | Spoken |
 |-------|--------|
