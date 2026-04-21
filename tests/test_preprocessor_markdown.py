@@ -69,10 +69,20 @@ def test_code_block_kept_when_requested():
     assert "pass" in out
 
 
-def test_inline_code():
-    out = markdown_to_tts_prose("Use `print(x)` to debug.")
+def test_inline_code_stripped_in_real_markdown():
+    """Inline backticks ARE stripped when the document has block-level
+    markdown markers — the token walker handles them."""
+    md = "# Debugging\n\nUse `print(x)` to inspect values."
+    out = markdown_to_tts_prose(md)
     assert "print(x)" in out
     assert "`" not in out
+
+
+def test_inline_code_only_passes_through():
+    """Inline code alone is not enough to trigger parsing (avoids false
+    positives on prose that mentions `` `x` `` as a variable)."""
+    text = "Use `print(x)` to debug."
+    assert markdown_to_tts_prose(text) == text
 
 
 def test_table_with_headers_as_labels():
@@ -125,3 +135,65 @@ def test_strikethrough_stripped():
     out = markdown_to_tts_prose("Before ~~obsolete~~ now fresh.")
     assert "obsolete" in out
     assert "~~" not in out
+
+
+# --- regression: technical prose must NOT be parsed as markdown ---
+
+
+def test_single_asterisk_emphasis_in_prose_passes_through():
+    """``Compute a*b*c in the loop.`` must not collapse to ``abc``."""
+    text = "Compute a*b*c in the loop."
+    assert markdown_to_tts_prose(text) == text
+
+
+def test_dunder_init_not_emphasized():
+    """``__init__`` is Python convention, not markdown strong emphasis."""
+    text = "Call __init__ now."
+    assert markdown_to_tts_prose(text) == text
+
+
+def test_dunder_name_not_emphasized():
+    text = "dunder __name__ variable."
+    assert markdown_to_tts_prose(text) == text
+
+
+def test_single_underscore_private_not_emphasized():
+    text = "Discuss _private_ members."
+    assert markdown_to_tts_prose(text) == text
+
+
+def test_inline_backticks_in_prose_pass_through():
+    """Backticks in prose should not trigger full markdown parsing."""
+    text = "Use the `x` variable for clarity."
+    assert markdown_to_tts_prose(text) == text
+
+
+def test_double_asterisk_kwargs_not_parsed():
+    """``**kwargs`` (Python) has no closing pair and must pass through."""
+    text = "def foo(**kwargs): pass"
+    assert markdown_to_tts_prose(text) == text
+
+
+def test_real_bold_still_stripped():
+    """``**bold**`` (balanced, non-empty) is a strong enough signal to strip."""
+    out = markdown_to_tts_prose("This word is **important** here.")
+    assert "important" in out
+    assert "**" not in out
+
+
+def test_single_asterisk_emphasis_passes_through_with_markers():
+    """A document with ONLY single-asterisk emphasis is left alone.
+
+    Documented trade-off: stripping single emphasis inline was too
+    aggressive for technical prose. Short-form emphasis-only text
+    keeps its markers; users who want stripping can add a heading
+    or list marker.
+    """
+    text = "Just a *little* reminder."
+    assert markdown_to_tts_prose(text) == text
+
+
+def test_less_than_three_not_html():
+    """``<3`` (heart emoticon) must not trigger HTML tag detection."""
+    text = "I heart <3 this library."
+    assert markdown_to_tts_prose(text) == text

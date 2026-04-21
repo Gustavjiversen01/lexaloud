@@ -26,6 +26,31 @@ import re
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
+# Conservative heuristic: we only trigger the markdown parser when the
+# input shows *unambiguous* evidence of being a markdown document. The
+# earlier version triggered on single `*...*`, single `_..._`, `__`,
+# and inline backticks, which produced silent false positives on
+# ordinary technical prose:
+#
+#     Compute a*b*c in the loop.        (single emphasis false positive)
+#     Call __init__ now.                (bare __ false positive)
+#     dunder __name__ variable.          (same)
+#     Let's discuss _private_ members.  (single emphasis false positive)
+#     Use the `x` variable.              (inline-code false positive)
+#
+# Those inline markers are dropped from the hint. A real markdown
+# document almost always has at least one BLOCK-level marker (heading,
+# list, blockquote, fence, rule, table) or a link/image/HTML tag —
+# those remain as triggers. Bold via `**text**` and strikethrough via
+# `~~text~~` are kept but now require a balanced non-empty pair whose
+# first inner character is not whitespace, which rules out bare `**`
+# / `~~` in technical prose.
+#
+# Trade-off: short prose that ONLY uses single-asterisk or
+# single-underscore emphasis (e.g. `"Just a *little* reminder."`) now
+# passes through with the markers intact. That is a recoverable
+# cosmetic issue; the earlier behavior silently corrupted code-like
+# prose, which is much worse.
 _MD_HINT = re.compile(
     r"(?m)("
     r"^\s{0,3}#{1,6}\s"  # ATX heading
@@ -35,15 +60,12 @@ _MD_HINT = re.compile(
     r"|^\s{0,3}```"  # fenced code
     r"|^\s{0,3}-{3,}\s*$"  # thematic break (---)
     r"|^\s{0,3}\*{3,}\s*$"  # thematic break (***)
-    r"|\*\*|__"  # strong
-    r"|~~"  # strikethrough
-    r"|(?<!\*)\*(?!\*)[^\n*]+\*(?!\*)"  # single-asterisk emphasis
-    r"|(?<!_)_(?!_)[^\n_]+_(?!_)"  # single-underscore emphasis
-    r"|`[^`\n]+`"  # inline code
+    r"|\*\*[^\s*][^\n*]*\*\*"  # balanced bold pair with non-whitespace inner
+    r"|~~[^\s~][^\n~]*~~"  # balanced strikethrough pair
     r"|\[[^\]]+\]\([^)]+\)"  # link
     r"|!\[[^\]]*\]\([^)]+\)"  # image
-    r"|^\|.*\|"  # table row
-    r"|</?\w+[^>]*>"  # HTML tag
+    r"|^\|[^\n]*\|"  # table row
+    r"|</?[a-zA-Z][\w-]*[^>]*>"  # HTML tag (letter start avoids e.g. `<3`)
     r")"
 )
 
