@@ -8,31 +8,30 @@ the PR is open so reviewers can read the full story. Remove on merge.
 - **Branch**: `feat/math-markdown-preprocessing`
 - **Tracks**: `origin/feat/math-markdown-preprocessing` (pushed)
 - **PR**: https://github.com/Gustavjiversen01/lexaloud/pull/13
-- **Commits landed** (oldest → newest):
-  1. `2b53f85` `feat(preprocessor): add MathJax selection dedupe`
-  2. `59aa55f` `feat(preprocessor): add markdown stripping via markdown-it-py`
-  3. `f5d1101` `test(preprocessor): end-to-end integration test on RL sample`
-  4. `9c2d097` `docs: document MathJax dedupe and markdown stripping options`
-  5. `dc18407` `feat(preprocessor): add SRE LaTeX bridge (opt-in, Node required)`
-  6. `6f3c456` `feat(install): add --with-math-speech flag to install.sh`
-  7. `bc66f9c` `test(benchmarks): add math/markdown benchmark corpus and runner`
-  8. `a93afd9` `docs: add MORNING-HANDOFF.md …` (this file; earlier state)
-  9. `0d9408c` `fix(preprocessor): space-pad word-adjacent symbol replacements`
-  10. `995e653` `fix(preprocessor): tighten markdown heuristic to eliminate false positives`
-  11. `278e024` `fix(sre): extend LaTeX delimiters and scrub stderr in warnings`
-  12. `7f59af5` `docs+polish: install help, configuration reference, image period`
-  13. `b4ec0b1` `fix(preprocessor): protect \(...\) / \[...\] through markdown-it-py`
+The commit list is deliberately omitted here to avoid going stale
+after each push. Use `git log --oneline main..HEAD` to see the
+current state of the branch. The commits group into three phases:
 
-Commits 1–7 are the original plan; 9–13 address code-review findings
-delivered after the PR opened.
+- **Original plan (phase 1–3)**: dedupe, markdown stripping,
+  integration test, docs, SRE bridge, installer flag, benchmark
+  corpus.
+- **First-round fixups**: symbol-spacing (`x∈X` → `x in X`),
+  markdown heuristic tightening, SRE stderr scrubbing + delimiter
+  extension, install help, [sre_latex] config docs, image alt-text
+  double-period.
+- **Second-round fixups**: `\(...\) / \[...\]` preservation through
+  markdown-it-py, per-call UUID sentinels (avoids PUA collision),
+  lockfile regeneration for `markdown-it-py` + `mdurl`.
 
 ## Test counts
 
 | Snapshot | Count | Notes |
 |---|---|---|
-| Preflight baseline on `main` | 329 passed in 2.01s | (see exclusions below) |
-| After commit 7 (initial PR) | 392 passed | +63 new |
-| After all fixup commits | **416 passed in 2.07s** | +87 total |
+| Preflight baseline on `main` | 329 passed in ~2s | (see exclusions below) |
+| After initial PR (phase 1–3) | 392 passed | +63 new |
+| After fixup rounds | 417+ passed in ~2s | each new regression from review adds a guard test |
+
+Run the gate (below) for the exact current count.
 
 Gate used throughout:
 
@@ -123,20 +122,16 @@ No zero-width chars.
 
 ## Deferred morning actions
 
-1. **Regenerate the hashed lockfiles** — `pyproject.toml` now declares
-   `markdown-it-py>=3.0` as a direct dependency, but neither
-   `requirements-lock.cuda12.txt` nor `requirements-lock.cpu.txt`
-   contains it. Until regenerated, `scripts/install.sh` produces a
-   Python environment where `from markdown_it import MarkdownIt`
-   raises `ImportError`, and the daemon will fail at import time.
-   **Merge-blocking for production release.**
-
-   The maintainer should regenerate both lockfiles with
-   `pip-compile --generate-hashes` following whatever workflow was
-   used to create the current hashed lockfiles (the flow is not in
-   this repo; check `scripts/` history or release notes). Mentioned
-   twice in review rounds — treat as the highest-priority morning
-   action.
+1. **Verify lockfile regeneration is sufficient** — `markdown-it-py`
+   4.0.0 and its `mdurl` 0.1.2 transitive dep were added by hand to
+   both `requirements-lock.cpu.txt` and `requirements-lock.cuda12.txt`
+   with their PyPI-published SHA-256 hashes (wheel + sdist). Both
+   lockfiles were validated with `pip install --dry-run
+   --require-hashes --no-deps -r <lockfile>` against a fresh venv.
+   The maintainer may still want to run a full `pip-compile
+   --generate-hashes` regeneration at the next release to pick up
+   any drifted transitive pins — this is a cosmetic alignment, not
+   a correctness fix.
 
 2. **Optional: install the SRE runtime** if you want Phase 2
    end-to-end:
@@ -179,4 +174,4 @@ env PYTHONPATH=src .venv-spike0/bin/python -m pytest tests/ \
 bash -n scripts/install.sh
 ```
 
-All should exit zero. Expected pytest line: `416 passed in ~2s`.
+All should exit zero.
