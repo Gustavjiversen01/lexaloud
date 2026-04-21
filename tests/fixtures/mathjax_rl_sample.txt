@@ -1,5 +1,5 @@
 Reinforcement Learning Problem
-RL systems are defined by a tuple of elements 
+RL systems are defined by a tuple of elements
 {
 X
 ,

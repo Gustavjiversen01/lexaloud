@@ -258,6 +258,50 @@ def test_starred_equation_environment_matched(monkeypatch):
     assert calls == [b"E = mc^2"]
 
 
+def test_escaped_bracket_delimiter_not_matched(monkeypatch):
+    """``\\\\(literal\\\\)`` must NOT be treated as a math span.
+
+    When the opening ``\\`` is itself escaped by another ``\\``, the
+    user is showing a literal ``\\(`` sequence (typically in prose
+    discussing LaTeX syntax), not delimiting math.
+    """
+    monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)
+    monkeypatch.setattr(sre_latex, "sre_executable_path", lambda: "/fake/sre")
+
+    calls: list[bytes] = []
+
+    def _capture(cmd, *a, input=None, **kw):
+        calls.append(input)
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=b"spoken", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", _capture)
+
+    # Double-backslash in the source string → literal \\( \\) sequence
+    # in the actual text. SRE must not receive the inner content.
+    text = r"Example: \\(not math\\) is literal."
+    out = latex_to_speech(text)
+    assert calls == []
+    assert out == text
+
+
+def test_escaped_display_delimiter_not_matched(monkeypatch):
+    """``\\\\[literal\\\\]`` must NOT be treated as a display-math span."""
+    monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)
+    monkeypatch.setattr(sre_latex, "sre_executable_path", lambda: "/fake/sre")
+
+    calls: list[bytes] = []
+
+    def _capture(cmd, *a, input=None, **kw):
+        calls.append(input)
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=b"spoken", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", _capture)
+    text = r"Example: \\[literal\\] brackets."
+    out = latex_to_speech(text)
+    assert calls == []
+    assert out == text
+
+
 def test_gather_environment_matched(monkeypatch):
     """``\\begin{gather}`` must be recognized."""
     monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)

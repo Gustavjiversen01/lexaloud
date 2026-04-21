@@ -77,32 +77,39 @@ First round (commits 9–12):
 | 4 | M | SRE regex missed `\(...\)`, `\[...\]`, starred environments | 278e024 |
 | 5 | M | Gate-command inconsistency between plan and implementation | documented here |
 | 6 | M | Branch pushed despite "local only" plan clause | superseded by explicit user request |
-| 7 | M | Production install still broken until lockfiles regenerated | deferred (see below) |
-| 8 | L | `install.sh --help` missing `--with-math-speech`, leaking `set -euo pipefail` | 7f59af5 |
-| 9 | L | `configuration.md` missing `[sre_latex]` section | 7f59af5 |
-| 10 | L | Image alt text producing double period | 7f59af5 |
+| 7 | M | Production install broken until lockfiles regenerated | fixed — `markdown-it-py`/`mdurl` added to both lockfiles with wheel+sdist hashes |
+| 8 | L | `install.sh --help` missing `--with-math-speech`, leaking `set -euo pipefail` | fixed |
+| 9 | L | `configuration.md` missing `[sre_latex]` section | fixed |
+| 10 | L | Image alt text producing double period | fixed |
 
-Second round (commit 13):
+Second round:
 
-| # | Severity | Summary | Commit |
+| # | Severity | Summary | Status |
 |---|---|---|---|
-| 1 | H | Markdown stripping unescaped `\(` / `\[` before SRE saw them — bug only manifested in the full pipeline, not in direct `latex_to_speech()` calls | b4ec0b1 (sentinel protection via PUA codepoints) |
+| 1 | H | Markdown stripping unescaped `\(` / `\[` before SRE saw them — bug only manifested in the full pipeline, not in direct `latex_to_speech()` calls | fixed — per-call UUID sentinels around PUA wrapper codepoints |
 | 2 | M | Markdown heuristic still leaves inline-only `*word*` and `` `x` `` unresolved in non-markdown prose | documented as intentional trade-off in `docs/configuration.md` |
-| 3 | M | Lockfiles remain unregenerated | deferred morning action (below) |
-| 4 | L | This handoff file was stale after the fixup commits | now refreshed |
-| 5 | L | `docs/install/math-speech.md` delimiter list was stale | synced with `docs/configuration.md` |
+| 3 | L | `docs/install/math-speech.md` delimiter list was stale | synced with `docs/configuration.md` |
+
+Third round:
+
+| # | Severity | Summary | Status |
+|---|---|---|---|
+| 1 | L | Escaped delimiters (`\\(...\\)`) could still false-positive as SRE spans | fixed — negative-lookbehind guards on the bracket branches |
+| 2 | L | This handoff file was still internally stale | now avoids commit SHAs entirely |
+| 3 | L | Trailing ASCII space on fixture line 2 tripped `git diff --check` | removed — dedupe tests still pass (line 2 space was not load-bearing) |
 
 ## Ready for morning review
 
-- **Phase 1 (commits 1–4, 9, 10, 13)**: MathJax dedupe + markdown
-  stripping + symbol spacing + heuristic tightening + SRE-delimiter
-  protection. Default-on. Zero new runtime deps beyond `markdown-it-py`.
-- **Phase 2 (commits 5, 6, 11)**: SRE LaTeX bridge with full delimiter
-  coverage and privacy-safe error logging. Opt-in via `[sre_latex]
-  enabled = true`. Gracefully no-ops when `sre` is not resolvable.
-- **Phase 3 (commit 7)**: 21-case benchmark corpus + opt-in SRE and
-  LLM variant runners.
-- **Polish (commits 8, 12)**: docs, installer help, image double-period.
+- **Phase 1**: MathJax dedupe + markdown stripping + symbol spacing
+  + heuristic tightening + SRE-delimiter protection. Default-on.
+  Zero new runtime deps beyond `markdown-it-py`.
+- **Phase 2**: SRE LaTeX bridge with full delimiter coverage and
+  privacy-safe error logging. Opt-in via `[sre_latex] enabled = true`.
+  Gracefully no-ops when `sre` is not resolvable.
+- **Phase 3**: 21-case benchmark corpus + opt-in SRE and LLM variant
+  runners.
+- **Polish**: docs, installer help, image double-period,
+  escaped-delimiter guards.
 
 ### Manual sanity check (no install needed)
 

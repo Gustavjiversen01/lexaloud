@@ -70,10 +70,12 @@ log = logging.getLogger(__name__)
 _LATEX_SPAN_RE = re.compile(
     # Display math via $$...$$ — MUST match before single $...$
     r"(?P<display>\$\$(?P<display_body>.+?)\$\$)"
-    # MathJax-style display math \[...\]
-    r"|(?P<bracket_display>\\\[(?P<bracket_display_body>.+?)\\\])"
-    # MathJax-style inline math \(...\)
-    r"|(?P<bracket_inline>\\\((?P<bracket_inline_body>.+?)\\\))"
+    # MathJax-style display math \[...\] — opening backslash must not
+    # itself be escaped by another backslash (``\\[...\\]`` is a
+    # literal ``\[...\]`` in prose discussing LaTeX syntax).
+    r"|(?P<bracket_display>(?<!\\)\\\[(?P<bracket_display_body>.+?)(?<!\\)\\\])"
+    # MathJax-style inline math \(...\) — same guard as above.
+    r"|(?P<bracket_inline>(?<!\\)\\\((?P<bracket_inline_body>.+?)(?<!\\)\\\))"
     # Inline math via $...$, with escaped-$ and adjacent-$ guards
     r"|(?P<inline>(?<!\\)(?<!\$)\$(?!\$)(?P<inline_body>.+?)(?<!\\)(?<!\$)\$(?!\$))"
     # LaTeX math environments; the env name uses a named backreference
