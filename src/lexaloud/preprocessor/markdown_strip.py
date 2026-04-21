@@ -93,7 +93,15 @@ def _inline_text(token: Token, *, announce_images: bool = True) -> str:
         elif ct == "image":
             alt = child.content.strip()
             if announce_images:
-                parts.append(f"Image: {alt}." if alt else "Image.")
+                # Intentionally no trailing period — surrounding prose
+                # usually provides one (``. ![alt](x)`` → ``. Image: alt.``
+                # with this rule, vs ``. Image: alt..`` with a trailing
+                # period). Trade-off: when the image is at a paragraph
+                # boundary with no prose punctuation, the output lacks
+                # a period — acceptable because `_canonicalize()` still
+                # produces a paragraph break from the surrounding
+                # newlines.
+                parts.append(f"Image: {alt}" if alt else "Image")
         # em/strong/s/link open/close: skip — the `text` children they
         # wrap are emitted directly by this loop.
     return "".join(parts)

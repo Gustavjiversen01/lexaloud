@@ -106,6 +106,9 @@ def test_image_alt_text():
     out = markdown_to_tts_prose("Before. ![chart](/img/x.png). After.")
     assert "Image: chart" in out
     assert "/img/x.png" not in out
+    # Must not produce a double period. The image emitter no longer
+    # appends its own "." so the surrounding prose period is preserved.
+    assert ".." not in out
 
 
 def test_blockquote_prefix():

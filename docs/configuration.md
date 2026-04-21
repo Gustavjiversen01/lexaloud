@@ -62,6 +62,29 @@ character-substitution stage, so their ordering is fixed.
 |-----|---------|-------------|
 | `overlay` | `false` | Show the floating overlay when speaking. The overlay is an always-on-top sentence caption bar. Enable via `overlay = true` under `[advanced]` or from the control window's Settings tab. On wlroots compositors and KWin, the overlay uses `gtk-layer-shell` for proper stacking; on X11 and GNOME Wayland it falls back to a `NOTIFICATION` type hint. |
 
+### `[sre_latex]`
+
+LaTeX-to-speech via [Speech Rule Engine](https://github.com/Speech-Rule-Engine/speech-rule-engine)
+(Apache-2.0, the engine behind MathJax). **Off by default.** Requires:
+
+1. Node.js ≥18 installed by your distro's package manager
+2. `./scripts/install.sh --with-math-speech` — installs
+   `speech-rule-engine@4.1.3` under `~/.local/share/lexaloud/sre/`
+   and symlinks `sre` into the venv's `bin/`
+
+Recognized LaTeX delimiters: `$...$`, `$$...$$`, `\(...\)`, `\[...\]`,
+and the math environments `equation`, `align`, `gather`, `multline`,
+`eqnarray` (and their starred variants).
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `enabled` | `false` | Master switch. Gracefully no-ops when `sre` is not resolvable. |
+| `timeout_s` | `10.0` | Per-span subprocess timeout. On timeout the whole text returns unchanged (deterministic fallback). |
+| `domain` | `"clearspeak"` | `"clearspeak"` produces natural prose ("a over b"); `"mathspeak"` is more verbose ("StartFraction a Over b EndFraction"). |
+| `style` | `""` | Optional style within the domain. Empty string omits the `-s` flag so SRE uses its default. Try `"verbose"` or `"short"` for `clearspeak`. |
+
+Full walkthrough: [`docs/install/math-speech.md`](install/math-speech.md).
+
 ### `[normalizer]`
 
 LLM-based text normalization for edge cases the rule-based pipeline

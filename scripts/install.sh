@@ -18,6 +18,10 @@
 #   ./scripts/install.sh --backend cuda12   # force NVIDIA GPU backend
 #   ./scripts/install.sh --backend cpu      # force CPU-only backend
 #   ./scripts/install.sh --backend auto     # equivalent to no flag
+#   ./scripts/install.sh --with-math-speech # also install speech-rule-engine
+#                                           # for LaTeX-to-speech (requires
+#                                           # node >=18, see
+#                                           # docs/install/math-speech.md)
 
 set -euo pipefail
 
@@ -45,7 +49,7 @@ while (( "$#" )); do
       shift
       ;;
     -h|--help)
-      sed -n '4,22p' "$0"
+      sed -n '4,24p' "$0"
       exit 0
       ;;
     *)
