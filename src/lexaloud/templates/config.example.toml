@@ -34,6 +34,15 @@ lang = "en-us"
 speed = 1.0
 
 [preprocessor]
+# Deduplicate math captured from MathJax/KaTeX-rendered pages. Browser
+# selection on such pages captures each expression twice (once stacked
+# one-char-per-line, once compact) — this detector removes the stacked
+# copy. No-op on non-MathJax input.
+dedupe_mathjax_selection = true
+# Strip markdown formatting (headings, lists, emphasis, tables, code
+# blocks, links, images). Converts to natural prose suitable for TTS.
+# Fast-path no-op when the input contains no markdown markers.
+strip_markdown = true
 # Strip numeric bracket citations like [3] or [1-4]
 strip_numeric_bracket_citations = true
 # Strip author-year parenthetical citations like (Smith 2023) — off by
@@ -86,3 +95,17 @@ overlay = false
 # [normalizer.glossary]
 # MAPPO = "Multi-Agent Proximal Policy Optimization"
 # GCBF = "Graph Control Barrier Function"
+
+# --- Speech Rule Engine LaTeX-to-speech (optional) ---
+# Requires Node.js >=18 and speech-rule-engine@4.1.3, installed via
+#   scripts/install.sh --with-math-speech
+# When enabled, LaTeX spans ($...$, $$...$$, \begin{equation}...) in
+# captured text get replaced with natural English ("x squared",
+# "a over b", "sum over t of r of x sub t"). Graceful no-op if the
+# sre binary is not resolvable. Off by default.
+#
+# [sre_latex]
+# enabled = false
+# timeout_s = 10.0
+# domain = "clearspeak"   # "clearspeak" or "mathspeak"
+# style = ""               # empty = omit -s flag; try "verbose" or "short"

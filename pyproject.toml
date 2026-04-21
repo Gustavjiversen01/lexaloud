@@ -57,6 +57,7 @@ dependencies = [
     "pysbd>=0.3",
     "httpx>=0.27",
     "pydantic>=2",
+    "markdown-it-py>=3.0",
 ]
 
 [project.optional-dependencies]

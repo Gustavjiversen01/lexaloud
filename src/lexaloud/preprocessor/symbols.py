@@ -180,7 +180,24 @@ _SYMBOL_PATTERN = re.compile(
 def normalize_math_symbols(text: str) -> str:
     """Replace Unicode math symbols with their spoken-word equivalents.
 
-    Only handles Unicode codepoints. ASCII operators (<=, >=, ->, !=)
-    are NOT expanded to avoid mangling code snippets.
+    Only handles Unicode codepoints. ASCII operators (``<=``, ``>=``,
+    ``->``, ``!=``) are NOT expanded to avoid mangling code snippets.
+
+    Word-adjacent replacements get padded with spaces so a captured
+    ``x∈X`` reads as ``x in X`` and not ``xinX``. Replacements that
+    already start or end with whitespace (e.g. ``" squared"``) do not
+    get an extra space in that direction.
     """
-    return _SYMBOL_PATTERN.sub(lambda m: _MATH_SYMBOLS[m.group()], text)
+
+    def _replace(m: re.Match) -> str:
+        repl = _MATH_SYMBOLS[m.group()]
+        start, end = m.span()
+        # Peek at the ORIGINAL surrounding chars via m.span() — re.sub
+        # reconstructs from the original string, so indices are stable.
+        prev_is_word = start > 0 and text[start - 1].isalnum()
+        next_is_word = end < len(text) and text[end].isalnum()
+        prefix = " " if prev_is_word and not repl.startswith((" ", "\t", "\n")) else ""
+        suffix = " " if next_is_word and not repl.endswith((" ", "\t", "\n")) else ""
+        return prefix + repl + suffix
+
+    return _SYMBOL_PATTERN.sub(_replace, text)

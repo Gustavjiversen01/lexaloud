@@ -39,8 +39,14 @@ systemctl --user restart lexaloud.service
 
 ### `[preprocessor]`
 
+Stages run in the listed order. `dedupe_mathjax_selection` and
+`strip_markdown` are structural cleanup passes that must run before any
+character-substitution stage, so their ordering is fixed.
+
 | Key | Default | Description |
 |-----|---------|-------------|
+| `dedupe_mathjax_selection` | `true` | Deduplicate math captured from rendered MathJax/KaTeX pages. When you select text on such a page, the browser captures each expression twice (stacked one-char-per-line + compact) with U+200B zero-width spaces between; this detector removes the stacked copy. No-op on non-MathJax input. |
+| `strip_markdown` | `true` | Convert markdown formatting (headings, lists, emphasis, tables, code blocks, links, images) into flowing prose. Code blocks are announced as `"Code block omitted."` by default; links show only their text. Uses `markdown-it-py` for CommonMark-compliant parsing. Fast-path no-op when the input has no markdown markers. **The detection heuristic is deliberately conservative** — it fires only when at least one block-level marker (heading, list, blockquote, fence, rule, table), a balanced `**bold**` / `~~strike~~` pair, a link/image, or an HTML tag is present. Inline-only emphasis like `*word*`, `_word_`, and inline backticks `` `x` `` are NOT enough to trigger parsing, because that would silently corrupt technical prose such as `a*b*c`, `__init__`, or `` `print(x)` `` mentions. The cost is that short prose with only single-asterisk emphasis keeps its markers intact — those may be read literally by Kokoro, depending on the voice and surrounding context. Add any block marker to trip the parser if that matters. |
 | `strip_numeric_bracket_citations` | `true` | Strip `[3]` or `[1-4]` style citations. |
 | `strip_parenthetical_citations` | `false` | Strip `(Smith 2023)` style citations. Off by default because it can over-match ordinary parentheticals. |
 | `expand_latin_abbreviations` | `true` | Expand `i.e.`, `e.g.`, `etc.` to full forms. |
@@ -55,6 +61,29 @@ systemctl --user restart lexaloud.service
 | Key | Default | Description |
 |-----|---------|-------------|
 | `overlay` | `false` | Show the floating overlay when speaking. The overlay is an always-on-top sentence caption bar. Enable via `overlay = true` under `[advanced]` or from the control window's Settings tab. On wlroots compositors and KWin, the overlay uses `gtk-layer-shell` for proper stacking; on X11 and GNOME Wayland it falls back to a `NOTIFICATION` type hint. |
+
+### `[sre_latex]`
+
+LaTeX-to-speech via [Speech Rule Engine](https://github.com/Speech-Rule-Engine/speech-rule-engine)
+(Apache-2.0, the engine behind MathJax). **Off by default.** Requires:
+
+1. Node.js ≥18 installed by your distro's package manager
+2. `./scripts/install.sh --with-math-speech` — installs
+   `speech-rule-engine@4.1.3` under `~/.local/share/lexaloud/sre/`
+   and symlinks `sre` into the venv's `bin/`
+
+Recognized LaTeX delimiters: `$...$`, `$$...$$`, `\(...\)`, `\[...\]`,
+and the math environments `equation`, `align`, `gather`, `multline`,
+`eqnarray` (and their starred variants).
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `enabled` | `false` | Master switch. Gracefully no-ops when `sre` is not resolvable. |
+| `timeout_s` | `10.0` | Per-span subprocess timeout. On timeout the whole text returns unchanged (deterministic fallback). |
+| `domain` | `"clearspeak"` | `"clearspeak"` produces natural prose ("a over b"); `"mathspeak"` is more verbose ("StartFraction a Over b EndFraction"). |
+| `style` | `""` | Optional style within the domain. Empty string omits the `-s` flag so SRE uses its default. Try `"verbose"` or `"short"` for `clearspeak`. |
+
+Full walkthrough: [`docs/install/math-speech.md`](install/math-speech.md).
 
 ### `[normalizer]`
 
