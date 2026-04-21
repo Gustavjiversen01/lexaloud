@@ -158,6 +158,45 @@ def test_greek_adjacent_to_text():
     assert "-stable" in result
 
 
+# --- regression: word-adjacent operator replacements must be space-padded ---
+
+
+def test_membership_between_word_chars_spaced():
+    """x membership X must read as 'x in X', not 'xinX'."""
+    assert normalize_math_symbols("x∈X") == "x in X"
+
+
+def test_not_member_spacing():
+    assert normalize_math_symbols("y∉Y") == "y not in Y"
+
+
+def test_leq_between_word_chars_spaced():
+    assert normalize_math_symbols("a≤b") == "a less than or equal to b"
+
+
+def test_leq_between_digits_spaced():
+    assert normalize_math_symbols("5≤10") == "5 less than or equal to 10"
+
+
+def test_arrow_between_word_chars_spaced():
+    assert normalize_math_symbols("x→y") == "x implies y"
+
+
+def test_prefixed_space_replacement_not_double_spaced():
+    """Superscript replaces with ' squared' -- do not double the space."""
+    assert normalize_math_symbols("x² + 1") == "x squared + 1"
+
+
+def test_no_extra_space_at_sentence_start():
+    """Symbol at index 0 should not produce a leading space."""
+    assert normalize_math_symbols("α particles scatter") == "alpha particles scatter"
+
+
+def test_no_extra_space_at_sentence_end():
+    """Symbol at end-of-string: no trailing space added."""
+    assert normalize_math_symbols("pi is π") == "pi is pi"
+
+
 # --- integration: pipeline order (math symbols before NFKC) ---
 
 
