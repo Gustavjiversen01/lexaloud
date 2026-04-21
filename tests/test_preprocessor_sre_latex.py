@@ -210,6 +210,96 @@ def test_empty_style_omits_s_flag(monkeypatch):
     assert "-s" not in captured["cmd"]
 
 
+def test_bracket_display_math_matched(monkeypatch):
+    """MathJax-style ``\\[...\\]`` display math must be handled."""
+    monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)
+    monkeypatch.setattr(sre_latex, "sre_executable_path", lambda: "/fake/sre")
+
+    calls: list[bytes] = []
+
+    def _capture(cmd, *a, input=None, **kw):
+        calls.append(input)
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=b"spoken", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", _capture)
+    latex_to_speech(r"Display: \[a + b\] done.")
+    assert calls == [b"a + b"]
+
+
+def test_bracket_inline_math_matched(monkeypatch):
+    """MathJax-style ``\\(...\\)`` inline math must be handled."""
+    monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)
+    monkeypatch.setattr(sre_latex, "sre_executable_path", lambda: "/fake/sre")
+
+    calls: list[bytes] = []
+
+    def _capture(cmd, *a, input=None, **kw):
+        calls.append(input)
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=b"spoken", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", _capture)
+    latex_to_speech(r"Inline: \(x + 1\) here.")
+    assert calls == [b"x + 1"]
+
+
+def test_starred_equation_environment_matched(monkeypatch):
+    """``\\begin{equation*}`` closes with ``\\end{equation*}`` (named backref)."""
+    monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)
+    monkeypatch.setattr(sre_latex, "sre_executable_path", lambda: "/fake/sre")
+
+    calls: list[bytes] = []
+
+    def _capture(cmd, *a, input=None, **kw):
+        calls.append(input)
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=b"spoken", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", _capture)
+    latex_to_speech(r"\begin{equation*}E = mc^2\end{equation*}")
+    assert calls == [b"E = mc^2"]
+
+
+def test_gather_environment_matched(monkeypatch):
+    """``\\begin{gather}`` must be recognized."""
+    monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)
+    monkeypatch.setattr(sre_latex, "sre_executable_path", lambda: "/fake/sre")
+
+    calls: list[bytes] = []
+
+    def _capture(cmd, *a, input=None, **kw):
+        calls.append(input)
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=b"spoken", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", _capture)
+    latex_to_speech(r"\begin{gather}a = b\\c = d\end{gather}")
+    assert len(calls) == 1
+
+
+def test_stderr_not_logged_raw_on_failure(monkeypatch, caplog):
+    """SRE stderr must NOT appear verbatim in log output."""
+    import logging
+
+    monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)
+    monkeypatch.setattr(sre_latex, "sre_executable_path", lambda: "/fake/sre")
+
+    secret = b"<user LaTeX> \\frac{secret}{formula} <end>"
+
+    def _fail(cmd, *a, **kw):
+        return subprocess.CompletedProcess(cmd, returncode=1, stdout=b"", stderr=secret)
+
+    monkeypatch.setattr(subprocess, "run", _fail)
+
+    with caplog.at_level(logging.WARNING, logger="lexaloud.preprocessor.sre_latex"):
+        latex_to_speech("$x^2$")
+
+    # The warning line must reference a fingerprint (length + sha1)
+    # but must not contain the raw bytes.
+    joined = " ".join(rec.getMessage() for rec in caplog.records)
+    assert "secret" not in joined
+    assert "formula" not in joined
+    # Length appears as "<N>B" and the sha1 prefix starts with "sha1="
+    assert "sha1=" in joined
+
+
 def test_display_math_matched_before_inline(monkeypatch):
     """``$$...$$`` must be matched as a whole, not as two inline $...$."""
     monkeypatch.setattr(sre_latex, "_candidate_ok", lambda p: True)

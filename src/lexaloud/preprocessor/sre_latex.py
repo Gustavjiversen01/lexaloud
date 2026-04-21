@@ -39,6 +39,7 @@ Tests that mock availability MUST call
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -48,21 +49,55 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
+
+def _scrub(data: bytes) -> str:
+    """Return a privacy-safe fingerprint of opaque subprocess output.
+
+    SRE's stderr can echo user-supplied LaTeX — logging it raw would
+    violate the same privacy posture the daemon enforces elsewhere
+    (see ``_sentence_token`` in ``providers/kokoro.py``). We log only
+    length plus SHA-1[:8] so operators can correlate across lines
+    without leaking content.
+    """
+    if not data:
+        return "empty"
+    digest = hashlib.sha1(data).hexdigest()[:8]
+    return f"{len(data)}B sha1={digest}"
+
+
 log = logging.getLogger(__name__)
 
 _LATEX_SPAN_RE = re.compile(
+    # Display math via $$...$$ — MUST match before single $...$
     r"(?P<display>\$\$(?P<display_body>.+?)\$\$)"
+    # MathJax-style display math \[...\]
+    r"|(?P<bracket_display>\\\[(?P<bracket_display_body>.+?)\\\])"
+    # MathJax-style inline math \(...\)
+    r"|(?P<bracket_inline>\\\((?P<bracket_inline_body>.+?)\\\))"
+    # Inline math via $...$, with escaped-$ and adjacent-$ guards
     r"|(?P<inline>(?<!\\)(?<!\$)\$(?!\$)(?P<inline_body>.+?)(?<!\\)(?<!\$)\$(?!\$))"
-    r"|(?P<env>\\begin\{(?P<env_name>equation|align)\}(?P<env_body>.+?)\\end\{(?P=env_name)\})",
+    # LaTeX math environments; the env name uses a named backreference
+    # so open/close must agree. Covers equation, align, gather,
+    # multline, eqnarray, and their starred variants.
+    r"|(?P<env>"
+    r"\\begin\{(?P<env_name>"
+    r"equation\*?|align\*?|gather\*?|multline\*?|eqnarray\*?"
+    r")\}"
+    r"(?P<env_body>.+?)"
+    r"\\end\{(?P=env_name)\})",
     re.DOTALL,
 )
 
-# Reuse the LLM normalizer's LaTeX marker regex as a cheap first-pass
-# gate. If there's no hint of LaTeX, skip the full span scan.
+# Cheap first-pass gate. If there's no hint of LaTeX in the text, skip
+# the full span scan. Extends the LLM normalizer's hint regex with the
+# MathJax-style ``\(...\)`` / ``\[...\]`` delimiters and the additional
+# math environments the span regex handles.
 _LATEX_HINT_RE = re.compile(
     r"\\(?:frac|sum|int|sqrt|alpha|beta|gamma|begin|end|text|mathbf|mathrm)"
     r"|\$\$.+?\$\$"
-    r"|\$[^$]+\$",
+    r"|\$[^$]+\$"
+    r"|\\\(.+?\\\)"
+    r"|\\\[.+?\\\]",
     re.DOTALL,
 )
 
@@ -110,7 +145,13 @@ def _collect_spans(text: str) -> list[tuple[int, int, str]]:
     """Return ``(start, end, inner_latex)`` for each matched LaTeX span."""
     spans: list[tuple[int, int, str]] = []
     for m in _LATEX_SPAN_RE.finditer(text):
-        body = m.group("display_body") or m.group("inline_body") or m.group("env_body")
+        body = (
+            m.group("display_body")
+            or m.group("bracket_display_body")
+            or m.group("bracket_inline_body")
+            or m.group("inline_body")
+            or m.group("env_body")
+        )
         if body is None:
             continue
         spans.append((m.start(), m.end(), body))
@@ -166,9 +207,10 @@ def latex_to_speech(
             )
             if proc.returncode != 0:
                 log.warning(
-                    "SRE returned non-zero for a LaTeX span; "
-                    "falling back to original text (stderr=%r)",
-                    proc.stderr[:200] if proc.stderr else b"",
+                    "SRE returned non-zero (rc=%d) for a LaTeX span; "
+                    "falling back to original text (stderr=%s)",
+                    proc.returncode,
+                    _scrub(proc.stderr or b""),
                 )
                 return text
             spoken = proc.stdout.decode("utf-8").strip()
