@@ -217,7 +217,7 @@ def test_install_missing_deps_hash_verified_path(tmp_path, monkeypatch):
 
     captured: dict = {}
 
-    def _fake_run(cmd, *, env, check):
+    def _fake_run(cmd, *, env, check, timeout=None):
         captured["cmd"] = cmd
         captured["env_clean"] = "PYTHONPATH" not in env
 
@@ -255,7 +255,7 @@ def test_install_missing_deps_falls_back_when_no_lockfile(tmp_path, monkeypatch)
 
     captured: dict = {}
 
-    def _fake_run(cmd, *, env, check):
+    def _fake_run(cmd, *, env, check, timeout=None):
         captured["cmd"] = cmd
 
         class _Result:
@@ -290,7 +290,7 @@ def test_install_missing_deps_falls_back_when_hashed_install_fails(tmp_path, mon
 
     calls: list[list[str]] = []
 
-    def _fake_run(cmd, *, env, check):
+    def _fake_run(cmd, *, env, check, timeout=None):
         calls.append(list(cmd))
 
         class _Result:
@@ -327,6 +327,33 @@ def test_check_and_install_no_op_when_deps_present(monkeypatch):
     from lexaloud.cli import EXIT_OK
 
     assert _check_and_install_runtime_deps() == EXIT_OK
+
+
+def test_install_missing_deps_timeout_graceful(tmp_path, monkeypatch, capsys):
+    """L2 regression: TimeoutExpired must exit 1 with a manual-recovery
+    message (not raise or hang)."""
+    import subprocess as real_subprocess
+
+    import lexaloud.setup as setup_mod
+
+    fake_pip = tmp_path / "pip"
+    fake_pip.write_text("")
+    fake_pip.chmod(0o755)
+
+    # Force the fallback (no lockfile) path so there's exactly one
+    # subprocess.run invocation to mock.
+    monkeypatch.setattr(setup_mod, "_detect_repo_root", lambda: None)
+
+    def _timeout(cmd, **kw):
+        raise real_subprocess.TimeoutExpired(cmd=cmd, timeout=kw.get("timeout", 0))
+
+    monkeypatch.setattr(setup_mod.subprocess, "run", _timeout)
+
+    rc = _install_missing_deps(["markdown-it-py"], venv_pip=fake_pip)
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "timed out" in err
+    assert "markdown-it-py" in err
 
 
 def test_check_and_install_reports_residual_missing(monkeypatch, capsys):

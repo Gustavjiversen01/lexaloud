@@ -31,6 +31,11 @@ from .cli import EXIT_GENERIC_ERROR, EXIT_OK
 from .models import default_cache_dir, ensure_artifacts
 from .session import detect_session
 
+# Pip install timeout. Generous enough for a slow connection to fetch
+# a markdown-it-py-sized package; bounded so an unreachable PyPI
+# doesn't hang ``lexaloud setup`` indefinitely.
+_PIP_TIMEOUT_SECONDS: int = 600  # 10 minutes
+
 # Declared runtime deps (as in pyproject.toml [project.dependencies]),
 # mapped to the importable module name. This is the small set we
 # spot-check on `lexaloud setup` so that a user who upgrades the repo
@@ -137,6 +142,13 @@ def _install_missing_deps(
     root = repo_root if repo_root is not None else _detect_repo_root()
     back = backend if backend is not None else _detect_backend()
 
+    def _timeout_msg() -> str:
+        return (
+            f"  ERROR: pip install timed out after {_PIP_TIMEOUT_SECONDS}s. "
+            "Network may be unreachable. Run manually: "
+            f"{pip_bin} install {' '.join(packages)}"
+        )
+
     if root is not None:
         lockfile = root / f"requirements-lock.{back}.txt"
         if lockfile.is_file():
@@ -150,7 +162,10 @@ def _install_missing_deps(
                 *packages,
             ]
             try:
-                proc = subprocess.run(cmd, env=env, check=False)
+                proc = subprocess.run(cmd, env=env, check=False, timeout=_PIP_TIMEOUT_SECONDS)
+            except subprocess.TimeoutExpired:
+                print(_timeout_msg(), file=sys.stderr)
+                return 1
             except OSError as e:
                 print(f"  pip invocation failed: {e}", file=sys.stderr)
                 return 1
@@ -165,7 +180,10 @@ def _install_missing_deps(
     print("  (no lockfile found or hash-verified install failed — installing without hash pinning)")
     cmd = [str(pip_bin), "install", *packages]
     try:
-        proc = subprocess.run(cmd, env=env, check=False)
+        proc = subprocess.run(cmd, env=env, check=False, timeout=_PIP_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        print(_timeout_msg(), file=sys.stderr)
+        return 1
     except OSError as e:
         print(f"  pip invocation failed: {e}", file=sys.stderr)
         return 1
