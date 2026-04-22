@@ -218,9 +218,29 @@ class LlmNormalizer:
             # Resolve model path
             model_path = self._config.model_path
             if not model_path:
+                import os
+
                 from ..models import default_cache_dir
 
-                model_path = str(default_cache_dir() / self._config.model_file)
+                # Path-containment check (M3): reject model_file values
+                # that resolve outside the cache dir — prevents a
+                # hostile config.toml from pointing the daemon at an
+                # arbitrary user-readable file.
+                cache = default_cache_dir().resolve()
+                try:
+                    candidate = (cache / self._config.model_file).resolve()
+                except (OSError, ValueError) as e:
+                    log.error("invalid model_file path: %s", e)
+                    self._available = False
+                    return False
+                if not str(candidate).startswith(str(cache) + os.sep):
+                    log.error(
+                        "model_file %r escapes cache dir; refusing to load",
+                        self._config.model_file,
+                    )
+                    self._available = False
+                    return False
+                model_path = str(candidate)
 
             from pathlib import Path
 

@@ -100,3 +100,46 @@ def test_real_environment_is_gpu_only():
     """Integration check: the actual venv should have onnxruntime-gpu alone."""
     dist = assert_onnxruntime_environment()
     assert dist == "onnxruntime-gpu"
+
+
+# --- M4 regression: _download has a size cap ---
+
+
+def test_download_aborts_on_cap(tmp_path, monkeypatch):
+    """``models._download`` must abort + clean up its tmp file when the
+    server streams more than MAX_MODEL_DOWNLOAD_BYTES."""
+    from contextlib import contextmanager
+
+    import lexaloud.models as models_mod
+
+    # Shrink the cap so the test runs in milliseconds instead of
+    # allocating 4 GiB.
+    monkeypatch.setattr(models_mod, "MAX_MODEL_DOWNLOAD_BYTES", 4 * 1024)
+
+    class _FakeResp:
+        """Returns 1 MiB blocks forever — a misbehaving server."""
+
+        def __init__(self):
+            self._block = b"X" * (1 << 10)  # 1 KiB per read (keeps test fast)
+
+        def read(self, n: int) -> bytes:
+            return self._block
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    @contextmanager
+    def fake_urlopen(url):
+        yield _FakeResp()
+
+    monkeypatch.setattr(models_mod, "urlopen", fake_urlopen)
+
+    dest = tmp_path / "evil.bin"
+    with pytest.raises(ArtifactError, match="exceeded"):
+        models_mod._download("https://example.invalid/evil.bin", dest)
+    assert not dest.exists()
+    # tmp (`.partial`) should also be gone
+    assert not (tmp_path / "evil.bin.partial").exists()

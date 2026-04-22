@@ -82,16 +82,30 @@ class ArtifactError(RuntimeError):
     """Raised for missing-or-corrupt model artifacts."""
 
 
+# Hard cap on a single model download. The default Kokoro artifacts
+# are ~350 MB and the default Qwen2.5-1.5B LLM is ~1 GiB; 4 GiB is a
+# generous ceiling that still prevents a hostile or misconfigured
+# server from filling the user's disk. Users with legitimately larger
+# custom models must raise this in code and accept the risk.
+MAX_MODEL_DOWNLOAD_BYTES: int = 4 * (1 << 30)
+
+
 def _download(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".partial")
     log.info("downloading %s -> %s", url, dest)
     try:
         with urlopen(url) as resp, tmp.open("wb") as f:
+            downloaded = 0
             while True:
                 block = resp.read(1 << 20)
                 if not block:
                     break
+                downloaded += len(block)
+                if downloaded > MAX_MODEL_DOWNLOAD_BYTES:
+                    raise ArtifactError(
+                        f"download of {url} exceeded {MAX_MODEL_DOWNLOAD_BYTES} bytes cap; aborting"
+                    )
                 f.write(block)
         tmp.replace(dest)
     except BaseException:
