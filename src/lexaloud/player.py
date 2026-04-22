@@ -47,7 +47,6 @@ Lifecycle:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 from collections import deque
 from collections.abc import Callable
@@ -57,20 +56,9 @@ from typing import Literal
 
 import numpy as np
 
+from ._privacy import sentence_token
 from .audio import AudioSink
 from .providers.base import AudioChunk, SpeechProvider
-
-
-def _sentence_token(sentence: str) -> str:
-    """Return a privacy-safe identifier for a sentence: sha1[:8] + length.
-
-    Used in log messages so the daemon's journal never contains readable
-    user selection text. Duplicated from providers.kokoro to avoid a
-    circular import.
-    """
-    digest = hashlib.sha1(sentence.encode("utf-8")).hexdigest()[:8]
-    return f"{digest} ({len(sentence)}ch)"
-
 
 log = logging.getLogger(__name__)
 
@@ -266,7 +254,7 @@ class Player:
                     log.debug(
                         "job=%d: synthesize returned None for sentence %s",
                         job_id,
-                        _sentence_token(sentence),
+                        sentence_token(sentence),
                     )
                     continue
                 if not self._is_current_job(job_id):

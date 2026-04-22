@@ -38,7 +38,6 @@ Design, per the plan and Spike 0 findings:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -46,19 +45,8 @@ from typing import Any
 
 import numpy as np
 
+from .._privacy import sentence_token
 from .base import AudioChunk
-
-
-def _sentence_token(sentence: str) -> str:
-    """Return a privacy-safe identifier for a sentence: sha1[:8] + length.
-
-    Used in log messages so the daemon's journal never contains readable
-    user selection text, while still allowing operators to correlate
-    log entries with a specific sentence via its fingerprint.
-    """
-    digest = hashlib.sha1(sentence.encode("utf-8")).hexdigest()[:8]
-    return f"{digest} ({len(sentence)}ch)"
-
 
 log = logging.getLogger(__name__)
 
@@ -312,7 +300,7 @@ class KokoroProvider:
                 "dropping the chunk to avoid audio artifacts",
                 samples.shape[0],
                 samples.shape[0] * 1000.0 / sr,
-                _sentence_token(sentence),
+                sentence_token(sentence),
             )
             return None
 

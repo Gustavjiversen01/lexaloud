@@ -55,7 +55,7 @@ def _scrub(data: bytes) -> str:
 
     SRE's stderr can echo user-supplied LaTeX — logging it raw would
     violate the same privacy posture the daemon enforces elsewhere
-    (see ``_sentence_token`` in ``providers/kokoro.py``). We log only
+    (see ``sentence_token`` in ``lexaloud._privacy``). We log only
     length plus SHA-1[:8] so operators can correlate across lines
     without leaking content.
     """
