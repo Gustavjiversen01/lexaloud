@@ -101,3 +101,30 @@ def test_no_false_positive_on_initials():
     text = "Written by\nJ\nK\nRowling in 1997."
     out = dedupe_mathjax_selection(text)
     assert "J" in out and "K" in out and "Rowling" in out
+
+
+# --- M1 regression: pure ASCII-letter stacks are not real MathJax ---
+
+
+def test_pure_letter_stacked_block_not_deleted():
+    """Letter-only stacked lines followed by a word whose prefix matches
+    must NOT be treated as a MathJax duplicate. Real MathJax stacks
+    contain operators / digits / Greek; all-ASCII-letter stacks are
+    almost certainly outline or list fragments."""
+    text = "Set:\na\nb\nabc is the answer."
+    out = dedupe_mathjax_selection(text)
+    assert "a" in out
+    assert "b" in out
+    assert "abc is the answer." in out
+
+
+def test_digit_only_stacked_block_still_deduped():
+    """A digit-only stacked block IS legitimate MathJax (subscript
+    rendering), so the guard must not over-block: digits are not
+    ASCII letters, so the guard lets this through and the block is
+    deduped."""
+    text = "var\n1\n2\n12 is big."
+    out = dedupe_mathjax_selection(text)
+    assert "12 is big." in out
+    # The stacked digit lines should be gone (compact form '12' survives)
+    assert "\n1\n2\n" not in out
