@@ -31,6 +31,45 @@ def test_numeric_cleans_up_spacing():
     assert "," in out
 
 
+# --- H2 regression: prose-context lookbehind prevents false positives ---
+
+
+def test_array_index_preserved():
+    """``arr[3]`` is Python-style array indexing, not a citation."""
+    out = strip_numeric_bracket_citations("Access arr[3] and arr[42] here.")
+    assert "arr[3]" in out
+    assert "arr[42]" in out
+
+
+def test_subscript_chain_preserved():
+    """``m.group(0)[3]`` — ``)`` before ``[`` must not satisfy lookbehind."""
+    out = strip_numeric_bracket_citations("Use m.group(0)[3] for the match.")
+    assert "m.group(0)[3]" in out
+
+
+def test_regex_character_class_preserved():
+    """Regex literal ``r\"[0-9]+\"`` — ``\"`` before ``[`` must not match."""
+    out = strip_numeric_bracket_citations('Use r"[0-9]+" as the pattern.')
+    assert "[0-9]" in out
+
+
+def test_space_adjacent_vector_still_matches():
+    """Documented residual: ``x = [1, 2, 3]`` — space before ``[`` matches.
+
+    A standalone vector literal after whitespace is indistinguishable
+    from a prose citation cluster. Users reading code-heavy math
+    should disable strip_numeric_bracket_citations entirely.
+    """
+    out = strip_numeric_bracket_citations("x = [1, 2, 3]")
+    assert "[1, 2, 3]" not in out
+
+
+def test_citation_after_punctuation_still_matches():
+    """``,[3]`` — comma satisfies lookbehind, citation stripped."""
+    out = strip_numeric_bracket_citations("See the end,[3] for context.")
+    assert "[3]" not in out
+
+
 def test_parenthetical_author_year_single():
     out = strip_parenthetical_citations("As shown (Smith, 2023), the result.")
     assert "Smith" not in out

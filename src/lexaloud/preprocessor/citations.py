@@ -3,7 +3,14 @@
 Two functions:
 
 - `strip_numeric_bracket_citations` — on by default. Removes `[12]`,
-  `[12, 15]`, `[12-15]`, `[12–15]`. These are unambiguous in academic text.
+  `[12, 15]`, `[12-15]`, `[12–15]` when they appear in prose context
+  (at the start of the string, or preceded by whitespace / sentence
+  punctuation). This guard prevents false positives on subscript
+  chains like `arr[3]`, `m.group(0)[3]`, `d["key"]`, and regex
+  character classes like `r"[0-9]"`. Residual limitation: standalone
+  bracket-list literals after whitespace (e.g. ``x = [1, 2, 3]``) are
+  indistinguishable from citation clusters and will still be stripped;
+  users reading code-heavy math should set this to ``false``.
 
 - `strip_parenthetical_citations` — off by default. Removes
   `(Smith, 2023)`, `(Smith et al., 2023)`, `(Smith and Jones, 2023)`,
@@ -18,9 +25,14 @@ from __future__ import annotations
 
 import re
 
-# [12], [12, 15], [12-15], [12–15], [12, 15-18]. Anchored to ASCII digits and
-# commas/dashes/spaces only inside the brackets.
-_NUMERIC_BRACKET = re.compile(r"\[\s*\d+(?:\s*[–\-,]\s*\d+)*\s*\]")
+# [12], [12, 15], [12-15], [12–15], [12, 15-18]. Only fires when the `[`
+# is at the start of the string OR preceded by a whitespace /
+# sentence-punctuation character. That signature is characteristic of
+# real prose citations ("Smith [3]", "... end,[3]") and excludes
+# array indexing (`arr[3]` — letter before `[`), subscript chains
+# (`func()[3]` — `)` before), and regex literals (`r"[0-9]"` — `"`
+# before).
+_NUMERIC_BRACKET = re.compile(r"(?:^|(?<=[\s,;:.!?]))\[\s*\d+(?:\s*[–\-,]\s*\d+)*\s*\]")
 
 # Parenthetical author-year. Relaxed from earlier iterations:
 #  - accepts `&`, `and` as coauthor connector
