@@ -31,6 +31,8 @@ import sys
 from io import StringIO
 from pathlib import Path
 
+from ._privacy import sentence_token
+
 _REDACT_KEY_RE = re.compile(r"(?i)(key|token|secret|pass)")
 
 
@@ -39,6 +41,24 @@ def _redact_home(text: str) -> str:
     if not home:
         return text
     return text.replace(home, "~")
+
+
+def _redact_state(state: dict, redact: bool) -> dict:
+    """Return a copy of the daemon /state dict with user text redacted.
+
+    ``current_sentence`` is the raw selection text being spoken; dumping
+    it into a bug report (which the user pastes into a public GitHub
+    issue) bypasses the privacy discipline used elsewhere in the daemon.
+    Replace it with a ``sentence_token`` fingerprint in redact mode;
+    pass through unchanged in ``--full`` mode.
+    """
+    if not redact:
+        return state
+    out = dict(state)
+    cs = out.get("current_sentence")
+    if isinstance(cs, str) and cs:
+        out["current_sentence"] = f"<redacted: {sentence_token(cs)}>"
+    return out
 
 
 def _redact_toml_values(toml_text: str) -> str:
@@ -181,7 +201,8 @@ def collect_bug_report(redact: bool = True) -> str:
     w("")
     w("## Daemon state")
     w("")
-    state = _get_daemon_state()
+    raw_state = _get_daemon_state()
+    state = _redact_state(raw_state, redact)
     if state:
         pretty = json.dumps(state, indent=2)
         # pretty is already redacted by the `w` wrapper when it calls
@@ -198,7 +219,13 @@ def collect_bug_report(redact: bool = True) -> str:
             w("### last_error")
             w("")
             w("```")
-            out.write(str(last_error) + "\n")
+            # Route through _redact_home too — last_error is a fixed
+            # template today (see player.py:231-238, :292), but ``{e}``-
+            # formatted exception reprs may contain $HOME paths.
+            last_error_text = str(last_error)
+            if redact:
+                last_error_text = _redact_home(last_error_text)
+            out.write(last_error_text + "\n")
             w("```")
     else:
         w("(daemon not running or UDS unreachable)")

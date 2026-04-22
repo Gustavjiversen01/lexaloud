@@ -292,12 +292,31 @@ def cmd_download_models(args) -> int:
 
 def _download_llm_model() -> int:
     """Download the LLM normalizer model (GGUF) from HuggingFace."""
+    import os
+
     from .config import NormalizerConfig, load_config
-    from .models import default_cache_dir
+    from .models import MAX_MODEL_DOWNLOAD_BYTES, default_cache_dir
 
     cfg = load_config()
     nc = cfg.normalizer if cfg.normalizer.model_file else NormalizerConfig()
-    dest = default_cache_dir() / nc.model_file
+
+    # Path-containment check (M3): reject model_file values that resolve
+    # outside the cache dir (e.g. ``"../../.bashrc"``). Without this,
+    # a hostile or broken config.toml could cause the daemon to write
+    # the downloaded bytes to an arbitrary user-writable location.
+    cache = default_cache_dir().resolve()
+    try:
+        dest = (cache / nc.model_file).resolve()
+    except (OSError, ValueError) as e:
+        print(f"ERROR: invalid model_file path: {e}", file=sys.stderr)
+        return EXIT_GENERIC_ERROR
+    if not str(dest).startswith(str(cache) + os.sep):
+        print(
+            f"ERROR: model_file '{nc.model_file}' escapes the cache dir. "
+            f"Refusing to download outside {cache}/.",
+            file=sys.stderr,
+        )
+        return EXIT_GENERIC_ERROR
 
     if dest.exists():
         print(f"LLM model already exists: {dest}")
@@ -317,15 +336,37 @@ def _download_llm_model() -> int:
 
         req = Request(url, headers={"User-Agent": "lexaloud"})
         with urlopen(req) as resp, tmp.open("wb") as f:
+            # Size-cap pre-check (M4): if the server announces a
+            # Content-Length greater than our cap, refuse upfront.
             total = resp.headers.get("Content-Length")
+            if total is not None:
+                try:
+                    announced = int(total)
+                except ValueError:
+                    announced = -1  # malformed; fall through to streaming cap
+                if announced > MAX_MODEL_DOWNLOAD_BYTES:
+                    print(
+                        f"\nERROR: server reports Content-Length {announced} > "
+                        f"cap {MAX_MODEL_DOWNLOAD_BYTES}. Refusing.",
+                        file=sys.stderr,
+                    )
+                    # Let the except BaseException path clean up tmp.
+                    raise RuntimeError("Content-Length exceeds cap")
             total_mb = int(total) / (1024 * 1024) if total else None
             downloaded = 0
             while True:
                 block = resp.read(1 << 20)
                 if not block:
                     break
-                f.write(block)
                 downloaded += len(block)
+                # Size-cap streaming check (M4): even with a missing or
+                # lying Content-Length, abort once downloaded exceeds cap.
+                if downloaded > MAX_MODEL_DOWNLOAD_BYTES:
+                    raise RuntimeError(
+                        f"download exceeded {MAX_MODEL_DOWNLOAD_BYTES} bytes; "
+                        "server may be streaming unbounded data. Aborting."
+                    )
+                f.write(block)
                 mb = downloaded / (1024 * 1024)
                 if total_mb:
                     pct = (downloaded / int(total)) * 100

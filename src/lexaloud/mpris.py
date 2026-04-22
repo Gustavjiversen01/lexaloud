@@ -204,16 +204,21 @@ class MprisAdapter:
 
             @dbus_property(access=PropertyAccess.READ)
             def Metadata(self) -> "a{sv}":  # noqa: F821, F722
+                # Intentionally do NOT expose current_sentence here —
+                # xesam:title is broadcast on the session D-Bus and
+                # polled by any same-user media widget / browser
+                # extension. Publishing raw user selection text would
+                # bypass the sentence_token privacy discipline used
+                # elsewhere. Use a fixed title + voice info instead.
                 sentence = adapter._player.state.current_sentence
                 if sentence is None:
                     return {
                         "mpris:trackid": Variant("o", "/org/mpris/MediaPlayer2/TrackList/NoTrack"),
                     }
-                title = sentence[:80] + "..." if len(sentence) > 80 else sentence
                 voice = adapter._cfg.provider.voice
                 return {
                     "mpris:trackid": Variant("o", "/org/lexaloud/sentence"),
-                    "xesam:title": Variant("s", title),
+                    "xesam:title": Variant("s", "Speaking"),
                     "xesam:artist": Variant("as", [f"Kokoro — {voice}"]),
                 }
 

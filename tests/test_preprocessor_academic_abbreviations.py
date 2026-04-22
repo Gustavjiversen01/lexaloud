@@ -142,6 +142,24 @@ def test_st_does_not_match_saint():
     assert "St." in result
 
 
+# --- L1 regression: s.t. expands at sentence-boundary lookaheads ---
+
+
+def test_st_at_end_of_string_expanded():
+    """``s.t.`` at end-of-string matched via ``$`` lookahead."""
+    result = expand_academic_abbreviations("Minimize f(x) s.t.")
+    assert "such that" in result
+    assert "s.t." not in result
+
+
+def test_st_before_comma_expanded():
+    """``s.t.,`` — comma satisfies the boundary lookahead."""
+    result = expand_academic_abbreviations("Find x, s.t., y > 0.")
+    assert "such that" in result
+    # The comma after the expansion stays intact.
+    assert "such that," in result
+
+
 def test_iid_expands():
     result = expand_academic_abbreviations("Samples are i.i.d. random variables.")
     assert "independently and identically distributed" in result

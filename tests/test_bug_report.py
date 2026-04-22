@@ -79,3 +79,57 @@ def test_collect_bug_report_redaction_off_no_notice():
     ):
         text = collect_bug_report(redact=False)
     assert "Redaction is on by default" not in text
+
+
+# ---------- H1 regression: current_sentence must be redacted ----------
+
+
+_SECRET = "the user's actual selected sentence about sensitive topic"
+
+
+def _daemon_state_stub_with_sentence() -> dict:
+    return {
+        "state": "speaking",
+        "current_sentence": _SECRET,
+        "pending_count": 0,
+        "ready_count": 1,
+        "provider_name": "kokoro",
+        "session_providers": ["CUDAExecutionProvider"],
+        "last_error": None,
+    }
+
+
+def test_redacted_state_replaces_current_sentence():
+    """current_sentence must never appear verbatim in redacted output."""
+    with (
+        patch(
+            "lexaloud.bug_report._get_daemon_state",
+            return_value=_daemon_state_stub_with_sentence(),
+        ),
+        patch("lexaloud.bug_report._get_journalctl_tail", return_value=""),
+        patch("lexaloud.bug_report._get_model_cache_info", return_value=[]),
+        patch("lexaloud.bug_report._get_config_contents", return_value=""),
+        patch("lexaloud.bug_report._run", return_value=""),
+    ):
+        text = collect_bug_report(redact=True)
+    assert _SECRET not in text
+    assert "<redacted:" in text
+    # Tokens are <sha1[:8]> (<N>ch) — quick sanity: the length marker appears
+    assert f"({len(_SECRET)}ch)" in text
+
+
+def test_full_mode_keeps_current_sentence():
+    """``--full`` mode (redact=False) preserves the raw sentence for the user."""
+    with (
+        patch(
+            "lexaloud.bug_report._get_daemon_state",
+            return_value=_daemon_state_stub_with_sentence(),
+        ),
+        patch("lexaloud.bug_report._get_journalctl_tail", return_value=""),
+        patch("lexaloud.bug_report._get_model_cache_info", return_value=[]),
+        patch("lexaloud.bug_report._get_config_contents", return_value=""),
+        patch("lexaloud.bug_report._run", return_value=""),
+    ):
+        text = collect_bug_report(redact=False)
+    assert _SECRET in text
+    assert "<redacted:" not in text

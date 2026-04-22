@@ -91,6 +91,16 @@ def dedupe_mathjax_selection(text: str) -> str:
                     break
 
             if i < len(lines) and len(stacked_chars) >= 2:
+                # A real MathJax/KaTeX stacked block almost always
+                # contains at least one non-letter: a digit, operator,
+                # brace, or non-ASCII char (Greek). A run of single-
+                # char ASCII-letter lines is almost certainly a
+                # short-line outline or list, not math — require at
+                # least one non-(ASCII-letter) visible char.
+                if all(c.isalpha() and c.isascii() for c in stacked_chars):
+                    result_lines.extend(lines[run_start:i])
+                    continue
+
                 stacked_seq = "".join(stacked_chars)
 
                 compact_text = ""

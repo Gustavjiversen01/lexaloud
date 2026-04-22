@@ -152,3 +152,31 @@ async def test_mpris_state_change_emits_properties_changed():
 
     # The interface's emit_properties_changed should have been called
     mock_interface.emit_properties_changed.assert_called()
+
+
+# --- M2 regression: MPRIS Metadata must not broadcast user sentence text ---
+
+
+def test_mpris_metadata_never_exposes_sentence_text():
+    """``xesam:title`` is broadcast on the session D-Bus. It must be a
+    static/voice-derived string — never the user's current_sentence.
+
+    We verify at the source level because the ``Metadata`` property is
+    a method on a nested class inside ``_create_interface_class`` which
+    can only be instantiated by ``connect()`` against a live D-Bus bus.
+    """
+    import inspect
+
+    from lexaloud import mpris as mpris_mod
+
+    source = inspect.getsource(mpris_mod)
+
+    # The static title must be present.
+    assert '"xesam:title": Variant("s", "Speaking")' in source, (
+        "xesam:title should be the static string 'Speaking'"
+    )
+
+    # The old leaky pattern (sentence[:80]) must be gone.
+    assert "sentence[:80]" not in source, (
+        "found sentence[:80] — regression of M2 sentence-broadcast leak"
+    )

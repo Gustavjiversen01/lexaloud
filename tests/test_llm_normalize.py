@@ -182,3 +182,40 @@ def test_shutdown_when_never_initialized():
     cfg = NormalizerConfig()
     n = LlmNormalizer(cfg)
     n.shutdown()  # should not raise
+
+
+# --- M3 regression: load-path containment ---
+
+
+async def test_path_traversal_in_model_file_rejected(monkeypatch, tmp_path, caplog):
+    """A config with model_file that escapes the cache dir must be refused
+    at load time — _ensure_initialized sets _available=False and returns."""
+    import logging
+
+    cfg = NormalizerConfig(enabled=True, model_file="../../.bashrc")
+    n = LlmNormalizer(cfg)
+
+    # Point default_cache_dir at a real tmp_path so the resolve check runs
+    # against a realistic base. Without this, the malicious path might
+    # resolve somewhere that accidentally satisfies containment.
+    monkeypatch.setattr("lexaloud.models.default_cache_dir", lambda: tmp_path)
+
+    # Pretend llama_cpp IS importable so we get past the first guard and
+    # actually hit the path-containment check.
+    class _FakeLlama:
+        def __init__(self, *a, **kw):
+            raise AssertionError("Llama() must not be invoked when path escapes")
+
+    import sys
+
+    fake_llama_cpp = type(sys)("llama_cpp")
+    fake_llama_cpp.Llama = _FakeLlama  # type: ignore[attr-defined]
+
+    with caplog.at_level(logging.ERROR, logger="lexaloud.preprocessor.llm_normalize"):
+        with patch.dict("sys.modules", {"llama_cpp": fake_llama_cpp}):
+            ok = await n._ensure_initialized()
+
+    assert ok is False
+    assert n._available is False
+    # The log should mention the escape.
+    assert any("escape" in rec.getMessage().lower() for rec in caplog.records)

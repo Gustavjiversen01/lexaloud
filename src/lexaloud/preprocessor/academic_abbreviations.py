@@ -21,8 +21,11 @@ _REPLACEMENTS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?i)\bi\.i\.d\."), "independently and identically distributed"),
     # w.r.t. — case-insensitive
     (re.compile(r"(?i)\bw\.r\.t\."), "with respect to"),
-    # s.t. — strictly lowercase to avoid "St." (Saint/Street)
-    (re.compile(r"\bs\.t\.\s"), "such that "),
+    # s.t. — strictly lowercase to avoid "St." (Saint/Street). Uses a
+    # boundary lookahead (whitespace / sentence punctuation / end-of-
+    # string) so ``s.t.,``, ``s.t.;``, and end-of-string occurrences
+    # all expand while mid-word ``bus.t.`` still doesn't match.
+    (re.compile(r"\bs\.t\.(?=[\s,;:!?]|$)"), "such that"),
     # Academic abbreviations — case-insensitive, require word boundary
     (re.compile(r"(?i)\bApprox\."), "approximately"),
     (re.compile(r"(?i)\bChap\."), "Chapter"),
